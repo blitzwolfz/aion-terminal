@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use chrono::Utc;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::pty::session::{PtySession, SessionInfo};
 use crate::state::AppState;
@@ -140,7 +140,10 @@ pub async fn pty_spawn(
                 }
             };
 
-            guard.wait().unwrap_or_default()
+            match guard.wait() {
+                Ok(status) => i32::try_from(status.exit_code()).unwrap_or(i32::MAX),
+                Err(_) => -1,
+            }
         };
 
         let _ = app_for_exit.emit(
@@ -205,7 +208,7 @@ pub async fn pty_resize(
     };
 
     let master = session.master();
-    let mut guard = master
+    let guard = master
         .lock()
         .map_err(|_| format!("failed to lock pty master for session: {session_id}"))?;
 

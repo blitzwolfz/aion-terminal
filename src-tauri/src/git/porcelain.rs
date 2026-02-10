@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -148,12 +149,13 @@ pub fn diff(path: &str, file: &str, staged: bool) -> Result<DiffResult, String> 
             .map_err(|err| format!("failed to diff index to workdir: {err}"))?
     };
 
-    let mut hunks: Vec<DiffHunk> = Vec::new();
+    let hunks: RefCell<Vec<DiffHunk>> = RefCell::new(Vec::new());
 
     diff.foreach(
         &mut |_delta, _progress| true,
         None,
         Some(&mut |_delta, hunk| {
+            let mut hunks = hunks.borrow_mut();
             let header = String::from_utf8_lossy(hunk.header())
                 .trim()
                 .to_string();
@@ -164,6 +166,7 @@ pub fn diff(path: &str, file: &str, staged: bool) -> Result<DiffResult, String> 
             true
         }),
         Some(&mut |_delta, _hunk, line| {
+            let mut hunks = hunks.borrow_mut();
             if hunks.is_empty() {
                 hunks.push(DiffHunk {
                     header: "@@".to_string(),
@@ -199,7 +202,9 @@ pub fn diff(path: &str, file: &str, staged: bool) -> Result<DiffResult, String> 
     )
     .map_err(|err| format!("failed to walk diff: {err}"))?;
 
-    Ok(DiffResult { hunks })
+    Ok(DiffResult {
+        hunks: hunks.into_inner(),
+    })
 }
 
 pub fn stage(path: &str, files: Vec<String>) -> Result<(), String> {

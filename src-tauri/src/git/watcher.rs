@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter};
 
 pub fn start_watching(path: &Path, app_handle: AppHandle) -> Result<RecommendedWatcher, String> {
     let last_emit = Arc::new(Mutex::new(Instant::now() - Duration::from_millis(300)));
