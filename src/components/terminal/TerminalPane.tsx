@@ -16,6 +16,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<ReturnType<typeof createFitAddon> | null>(null);
   const outputLenRef = useRef(0);
+  const aliveRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) {
@@ -28,6 +29,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     });
     const fitAddon = createFitAddon();
     terminal.loadAddon(fitAddon);
+    aliveRef.current = true;
 
     // Prefer WebGL renderer for high-throughput terminal output.
     // Loaded lazily to avoid hard runtime failures on unsupported WebViews.
@@ -44,7 +46,29 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
       });
 
     terminal.open(containerRef.current);
-    fitAddon.fit();
+    const safeFit = () => {
+      if (!aliveRef.current || terminalRef.current !== terminal) {
+        return;
+      }
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+      if (container.clientWidth < 8 || container.clientHeight < 8) {
+        return;
+      }
+      try {
+        fitAddon.fit();
+      } catch {
+        // Ignore transient renderer/measurement races during first paint.
+      }
+    };
+
+    requestAnimationFrame(() => {
+      safeFit();
+      // Run once more to handle initial layout settling.
+      requestAnimationFrame(safeFit);
+    });
 
     terminal.onData((data) => {
       if (sessionId) {
@@ -53,7 +77,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     });
 
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
+      safeFit();
       if (sessionId && onResize) {
         onResize(terminal.cols, terminal.rows);
       }
@@ -65,6 +89,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     fitRef.current = fitAddon;
 
     return () => {
+      aliveRef.current = false;
       resizeObserver.disconnect();
       terminal.dispose();
       terminalRef.current = null;

@@ -46,11 +46,7 @@ try {
     throw new Error('Root element not found');
   }
 
-  ReactDOM.createRoot(root).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
+  ReactDOM.createRoot(root).render(<App />);
 } catch (error) {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
   showStartupError(message);
