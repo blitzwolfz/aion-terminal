@@ -16,15 +16,13 @@
   --status-info: #6b7280;
 }
 
-@layer utilities {
-  .bg-surface-primary { background-color: var(--surface-primary); }
-  .bg-surface-secondary { background-color: var(--surface-secondary); }
-  .bg-surface-tertiary { background-color: var(--surface-tertiary); }
-  .text-text-primary { color: var(--text-primary); }
-  .text-text-secondary { color: var(--text-secondary); }
-  .text-text-tertiary { color: var(--text-tertiary); }
-  .border-default { border-color: var(--border-default); }
-  .bg-accent-primary { background-color: var(--accent-primary); }
-  .bg-accent-muted { background-color: var(--accent-muted); }
-  .text-accent-primary { color: var(--accent-primary); }
-}
+.bg-surface-primary { background-color: var(--surface-primary); }
+.bg-surface-secondary { background-color: var(--surface-secondary); }
+.bg-surface-tertiary { background-color: var(--surface-tertiary); }
+.text-text-primary { color: var(--text-primary); }
+.text-text-secondary { color: var(--text-secondary); }
+.text-text-tertiary { color: var(--text-tertiary); }
+.border-default { border-color: var(--border-default); }
+.bg-accent-primary { background-color: var(--accent-primary); }
+.bg-accent-muted { background-color: var(--accent-muted); }
+.text-accent-primary { color: var(--accent-primary); }
