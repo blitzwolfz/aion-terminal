@@ -71,6 +71,30 @@ pub struct PullResult {
     pub detail: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct FetchResult {
+    pub ok: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MergeResult {
+    pub ok: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CherryPickResult {
+    pub ok: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TagResult {
+    pub ok: bool,
+    pub detail: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StashAction {
     Push,
@@ -473,6 +497,138 @@ pub fn pull(path: &str, remote: Option<String>, branch: Option<String>) -> Resul
     })
 }
 
+pub fn fetch(path: &str, remote: Option<String>) -> Result<FetchResult, String> {
+    let repo = open_repo(path)?;
+    let repo_dir = repo_root(&repo, path);
+
+    let mut command = Command::new("git");
+    command.arg("-C").arg(repo_dir).arg("fetch");
+
+    if let Some(remote) = remote {
+        command.arg(remote);
+    }
+
+    let output = command
+        .output()
+        .map_err(|err| format!("failed to execute git fetch: {err}"))?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    Ok(FetchResult {
+        ok: output.status.success(),
+        detail: if output.status.success() { stdout } else { stderr },
+    })
+}
+
+pub fn branch_delete(path: &str, branch: String, force: Option<bool>) -> Result<(), String> {
+    let repo = open_repo(path)?;
+    let mut local_branch = repo
+        .find_branch(&branch, BranchType::Local)
+        .map_err(|err| format!("failed to find branch '{branch}': {err}"))?;
+
+    if force.unwrap_or(false) {
+        local_branch
+            .into_reference()
+            .delete()
+            .map_err(|err| format!("failed to force delete branch '{branch}': {err}"))?;
+        return Ok(());
+    }
+
+    local_branch
+        .delete()
+        .map_err(|err| format!("failed to delete branch '{branch}': {err}"))
+}
+
+pub fn merge(path: &str, branch: String, no_ff: Option<bool>) -> Result<MergeResult, String> {
+    let repo = open_repo(path)?;
+    let repo_dir = repo_root(&repo, path);
+
+    let mut command = Command::new("git");
+    command.arg("-C").arg(repo_dir).arg("merge");
+
+    if no_ff.unwrap_or(false) {
+        command.arg("--no-ff");
+    }
+
+    command.arg(branch);
+
+    let output = command
+        .output()
+        .map_err(|err| format!("failed to execute git merge: {err}"))?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    Ok(MergeResult {
+        ok: output.status.success(),
+        detail: if output.status.success() { stdout } else { stderr },
+    })
+}
+
+pub fn cherry_pick(path: &str, commit: String) -> Result<CherryPickResult, String> {
+    let repo = open_repo(path)?;
+    let repo_dir = repo_root(&repo, path);
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_dir)
+        .arg("cherry-pick")
+        .arg(commit)
+        .output()
+        .map_err(|err| format!("failed to execute git cherry-pick: {err}"))?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    Ok(CherryPickResult {
+        ok: output.status.success(),
+        detail: if output.status.success() { stdout } else { stderr },
+    })
+}
+
+pub fn tag_create(path: &str, tag: String, target: Option<String>) -> Result<TagResult, String> {
+    let repo = open_repo(path)?;
+    let target_commit = if let Some(target_oid) = target {
+        repo.find_object(
+            git2::Oid::from_str(&target_oid)
+                .map_err(|err| format!("invalid target oid '{target_oid}': {err}"))?,
+            None,
+        )
+        .map_err(|err| format!("failed to resolve target '{target_oid}': {err}"))?
+    } else {
+        let head = repo
+            .head()
+            .and_then(|head| head.peel(git2::ObjectType::Commit))
+            .map_err(|err| format!("failed to resolve HEAD target for tag: {err}"))?;
+        head
+    };
+
+    let signature = repo
+        .signature()
+        .or_else(|_| Signature::now("Aion", "aion@local"))
+        .map_err(|err| format!("failed to create signature for tag: {err}"))?;
+
+    repo.tag(&tag, &target_commit, &signature, "", false)
+        .map_err(|err| format!("failed to create tag '{tag}': {err}"))?;
+
+    Ok(TagResult {
+        ok: true,
+        detail: format!("created tag {tag}"),
+    })
+}
+
+pub fn tag_delete(path: &str, tag: String) -> Result<TagResult, String> {
+    let repo = open_repo(path)?;
+    repo.tag_delete(&tag)
+        .map_err(|err| format!("failed to delete tag '{tag}': {err}"))?;
+
+    Ok(TagResult {
+        ok: true,
+        detail: format!("deleted tag {tag}"),
+    })
+}
+
 pub fn stash(
     path: &str,
     action: StashAction,
@@ -557,6 +713,12 @@ fn parse_stash_list(text: &str) -> Vec<StashEntry> {
             oid: format!("stash-{idx}"),
         })
         .collect()
+}
+
+pub fn discover_repo_root(path: &str) -> Result<String, String> {
+    let repo = open_repo(path)?;
+    let root = repo_root(&repo, path);
+    Ok(root.to_string_lossy().to_string())
 }
 
 fn open_repo(path: &str) -> Result<Repository, String> {

@@ -41,7 +41,7 @@ impl TokenScraper {
         }
     }
 
-    pub fn ingest(&self, session_id: &str, data: &[u8]) {
+    pub fn ingest(&self, session_id: &str, data: &[u8]) -> usize {
         let stripped = strip_ansi_escapes::strip(data);
         let text = String::from_utf8_lossy(&stripped);
 
@@ -50,7 +50,7 @@ impl TokenScraper {
         {
             let mut buffers = match self.line_buffers.lock() {
                 Ok(guard) => guard,
-                Err(_) => return,
+                Err(_) => return 0,
             };
 
             let buf = buffers.entry(session_id.to_string()).or_default();
@@ -63,15 +63,20 @@ impl TokenScraper {
             }
         }
 
+        let mut inserts = 0;
         for line in emitted_lines {
-            self.parse_line(session_id, &line);
+            if self.parse_line(session_id, &line) {
+                inserts += 1;
+            }
         }
+
+        inserts
     }
 
-    fn parse_line(&self, session_id: &str, line: &str) {
+    fn parse_line(&self, session_id: &str, line: &str) -> bool {
         let mut states = match self.parse_states.lock() {
             Ok(guard) => guard,
-            Err(_) => return,
+            Err(_) => return false,
         };
 
         let state = states.entry(session_id.to_string()).or_default();
@@ -116,7 +121,7 @@ impl TokenScraper {
 
         if is_complete {
             let raw = state.raw_lines.join("\n");
-            let _ = self.persist_usage(
+            let persisted = self.persist_usage(
                 session_id,
                 state.cost_usd.unwrap_or_default(),
                 state.tokens_in.unwrap_or_default(),
@@ -125,8 +130,13 @@ impl TokenScraper {
                 state.duration_s,
                 &raw,
             );
+
             *state = ParseState::default();
+
+            return persisted.is_ok();
         }
+
+        false
     }
 
     fn persist_usage(

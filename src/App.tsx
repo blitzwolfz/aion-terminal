@@ -26,6 +26,7 @@ export default function App() {
     output,
     activity,
     createSession,
+    duplicateSession,
     removeSession,
     renameSession,
     setActiveSession,
@@ -37,6 +38,7 @@ export default function App() {
     output: state.output,
     activity: state.activity,
     createSession: state.createSession,
+    duplicateSession: state.duplicateSession,
     removeSession: state.removeSession,
     renameSession: state.renameSession,
     setActiveSession: state.setActiveSession,
@@ -51,6 +53,22 @@ export default function App() {
     [sessions, activeSessionId]
   );
 
+  async function spawnSession(session: Session, overrideShell?: string) {
+    try {
+      await pty.spawn({
+        sessionId: session.id,
+        shell: overrideShell ?? session.shell,
+        cwd: session.cwd,
+        env: { ...shellConfig.defaultEnv, ...session.env },
+        cols: 120,
+        rows: 32
+      });
+    } catch (error) {
+      setStatus(session.id, 'terminated');
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     async function ensureInitialSession() {
       if (sessions.length > 0) {
@@ -64,23 +82,11 @@ export default function App() {
       const shell = preferredShell === 'custom' ? fallbackShell : preferredShell;
 
       const session = createSession(shell, DEFAULT_CWD);
-      try {
-        await pty.spawn({
-          sessionId: session.id,
-          shell,
-          cwd: DEFAULT_CWD,
-          env: shellConfig.defaultEnv,
-          cols: 120,
-          rows: 32
-        });
-      } catch (error) {
-        setStatus(session.id, 'terminated');
-        console.error(error);
-      }
+      await spawnSession(session, shell);
     }
 
     void ensureInitialSession();
-  }, [createSession, pty, sessions.length, setStatus, shellConfig.defaultEnv, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32]);
+  }, [createSession, sessions.length, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32]);
 
   async function handleCreateSession() {
     const fallbackShell = inferShell();
@@ -91,20 +97,16 @@ export default function App() {
 
     const session = createSession(shell, DEFAULT_CWD);
     setActiveSession(session.id);
+    await spawnSession(session, shell);
+  }
 
-    try {
-      await pty.spawn({
-        sessionId: session.id,
-        shell,
-        cwd: DEFAULT_CWD,
-        env: shellConfig.defaultEnv,
-        cols: 120,
-        rows: 32
-      });
-    } catch (error) {
-      setStatus(session.id, 'terminated');
-      console.error(error);
+  async function handleDuplicateSession(sessionId: string) {
+    const duplicated = duplicateSession(sessionId);
+    if (!duplicated) {
+      return;
     }
+    setActiveSession(duplicated.id);
+    await spawnSession(duplicated);
   }
 
   async function handleKillSession(sessionId: string) {
@@ -113,8 +115,18 @@ export default function App() {
     } catch (error) {
       console.error(error);
     } finally {
-      removeSession(sessionId);
+      setStatus(sessionId, 'terminated');
+      if (activeSessionId === sessionId) {
+        const next = sessions.find((session) => session.id !== sessionId && session.status !== 'terminated');
+        if (next) {
+          setActiveSession(next.id);
+        }
+      }
     }
+  }
+
+  function handleDismissSession(sessionId: string) {
+    removeSession(sessionId);
   }
 
   function handleSessionReorder(nextSessions: Session[]) {
@@ -128,6 +140,49 @@ export default function App() {
       }
     });
   }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isMeta = event.metaKey || event.ctrlKey;
+      if (!isMeta) {
+        return;
+      }
+
+      if (event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        void handleCreateSession();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'w') {
+        if (activeSession && activeSession.status !== 'terminated') {
+          event.preventDefault();
+          void handleKillSession(activeSession.id);
+        }
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        const candidates = sessions.filter((session) => session.status !== 'terminated');
+        if (candidates.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+
+        const currentIndex = candidates.findIndex((session) => session.id === activeSessionId);
+        const direction = event.shiftKey ? -1 : 1;
+        const nextIndex = currentIndex < 0
+          ? 0
+          : (currentIndex + direction + candidates.length) % candidates.length;
+
+        setActiveSession(candidates[nextIndex].id);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeSession, activeSessionId, sessions]);
 
   const repoPath = activeSession?.cwd ?? DEFAULT_CWD;
   const terminalOutput = activeSession ? output[activeSession.id] ?? [] : [];
@@ -166,6 +221,10 @@ export default function App() {
             onKill={(sessionId) => {
               void handleKillSession(sessionId);
             }}
+            onDuplicate={(sessionId) => {
+              void handleDuplicateSession(sessionId);
+            }}
+            onDismiss={handleDismissSession}
             onReorder={handleSessionReorder}
           />
 
@@ -176,7 +235,7 @@ export default function App() {
                 void handleCreateSession();
               }}
               onKillSession={() => {
-                if (activeSession) {
+                if (activeSession && activeSession.status !== 'terminated') {
                   void handleKillSession(activeSession.id);
                 }
               }}
@@ -187,12 +246,12 @@ export default function App() {
                 sessionId={activeSession?.id ?? null}
                 output={terminalOutput}
                 onInput={(value) => {
-                  if (activeSession) {
+                  if (activeSession && activeSession.status !== 'terminated') {
                     void pty.write(activeSession.id, value);
                   }
                 }}
                 onResize={(cols, rows) => {
-                  if (activeSession) {
+                  if (activeSession && activeSession.status !== 'terminated') {
                     void pty.resize(activeSession.id, cols, rows);
                   }
                 }}

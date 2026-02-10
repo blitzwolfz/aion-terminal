@@ -54,17 +54,7 @@ impl Default for ShellConfig {
 
 #[tauri::command]
 pub fn resolve_shell(config: ShellConfig, override_shell: Option<String>) -> Result<ShellInfo, String> {
-    if let Some(override_shell) = override_shell {
-        return shell_info_from_path(&override_shell);
-    }
-
-    let is_windows = cfg!(target_os = "windows");
-
-    if is_windows {
-        resolve_windows_shell(&config)
-    } else {
-        resolve_unix_shell(&config)
-    }
+    resolve_shell_with_config(&config, override_shell)
 }
 
 #[tauri::command]
@@ -78,17 +68,49 @@ pub fn save_shell_config(state: State<'_, AppState>, config: ShellConfig) -> Res
 
 #[tauri::command]
 pub fn load_shell_config(state: State<'_, AppState>) -> Result<ShellConfig, String> {
-    if !state.shell_config_path.exists() {
+    load_shell_config_from_path(state.shell_config_path.as_ref())
+}
+
+pub fn load_shell_config_from_path(path: &Path) -> Result<ShellConfig, String> {
+    if !path.exists() {
         let default = ShellConfig::default();
-        save_shell_config(state, default.clone())?;
+        let payload = serde_json::to_string_pretty(&default)
+            .map_err(|err| format!("failed to serialize default shell config: {err}"))?;
+        std::fs::write(path, payload)
+            .map_err(|err| format!("failed to write default shell config: {err}"))?;
         return Ok(default);
     }
 
-    let payload = std::fs::read_to_string(state.shell_config_path.as_ref())
+    let payload = std::fs::read_to_string(path)
         .map_err(|err| format!("failed to read shell config: {err}"))?;
 
     serde_json::from_str::<ShellConfig>(&payload)
         .map_err(|err| format!("failed to parse shell config: {err}"))
+}
+
+pub fn resolve_shell_with_config(
+    config: &ShellConfig,
+    override_shell: Option<String>,
+) -> Result<ShellInfo, String> {
+    let mut info = if let Some(override_shell) = override_shell {
+        shell_info_from_path(&override_shell)?
+    } else if cfg!(target_os = "windows") {
+        resolve_windows_shell(config)?
+    } else {
+        resolve_unix_shell(config)?
+    };
+
+    if !cfg!(target_os = "windows") {
+        if config.login_shell && !info.args.iter().any(|arg| arg == "-l") {
+            info.args.push("-l".to_string());
+        }
+
+        if !config.profile_load {
+            apply_no_profile_args(&mut info);
+        }
+    }
+
+    Ok(info)
 }
 
 fn resolve_unix_shell(config: &ShellConfig) -> Result<ShellInfo, String> {
@@ -100,13 +122,19 @@ fn resolve_unix_shell(config: &ShellConfig) -> Result<ShellInfo, String> {
             .darwin
             .as_ref()
             .ok_or_else(|| "custom darwin shell path is missing".to_string())?;
-        return shell_info_with_login(path, config.login_shell);
+        let mut info = shell_info_from_path(path)?;
+        info.name = selected.to_string();
+        return Ok(info);
     }
 
     let candidates: &[(&str, &str)] = match selected {
         "zsh" => &[("zsh", "/bin/zsh"), ("bash", "/bin/bash"), ("sh", "/bin/sh")],
         "bash" => &[("bash", "/bin/bash"), ("zsh", "/bin/zsh"), ("sh", "/bin/sh")],
-        "fish" => &[("fish", "/opt/homebrew/bin/fish"), ("fish", "/usr/local/bin/fish"), ("zsh", "/bin/zsh")],
+        "fish" => &[
+            ("fish", "/opt/homebrew/bin/fish"),
+            ("fish", "/usr/local/bin/fish"),
+            ("zsh", "/bin/zsh"),
+        ],
         _ => &[("zsh", "/bin/zsh"), ("bash", "/bin/bash"), ("sh", "/bin/sh")],
     };
 
@@ -114,9 +142,6 @@ fn resolve_unix_shell(config: &ShellConfig) -> Result<ShellInfo, String> {
         if Path::new(path).exists() {
             let mut info = shell_info_from_path(path)?;
             info.name = (*name).to_string();
-            if config.login_shell {
-                info.args.push("-l".to_string());
-            }
             return Ok(info);
         }
     }
@@ -156,12 +181,17 @@ fn resolve_windows_shell(config: &ShellConfig) -> Result<ShellInfo, String> {
     Err("failed to resolve windows shell".to_string())
 }
 
-fn shell_info_with_login(path: &str, login_shell: bool) -> Result<ShellInfo, String> {
-    let mut info = shell_info_from_path(path)?;
-    if login_shell && !cfg!(target_os = "windows") {
-        info.args.push("-l".to_string());
+fn apply_no_profile_args(info: &mut ShellInfo) {
+    let normalized_name = info.name.to_ascii_lowercase();
+
+    if normalized_name.contains("bash") {
+        info.args.push("--noprofile".to_string());
+        info.args.push("--norc".to_string());
+    } else if normalized_name.contains("zsh") {
+        info.args.push("-f".to_string());
+    } else if normalized_name.contains("fish") {
+        info.args.push("--no-config".to_string());
     }
-    Ok(info)
 }
 
 fn shell_info_from_path(path: &str) -> Result<ShellInfo, String> {

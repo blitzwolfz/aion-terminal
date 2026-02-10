@@ -1,9 +1,14 @@
+use std::path::Path;
+
 use serde::Deserialize;
+use tauri::{AppHandle, State};
 
 use crate::git::porcelain::{
-    self, BranchList, CommitEntry, CommitInfo, DiffResult, FileStatus, PullResult, PushResult,
-    StashAction, StashResult,
+    self, BranchList, CherryPickResult, CommitEntry, CommitInfo, DiffResult, FetchResult,
+    FileStatus, MergeResult, PullResult, PushResult, StashAction, StashResult, TagResult,
 };
+use crate::git::watcher;
+use crate::state::AppState;
 
 #[tauri::command]
 pub async fn git_status(path: String) -> Result<Vec<FileStatus>, String> {
@@ -58,6 +63,15 @@ pub async fn git_checkout(
 }
 
 #[tauri::command]
+pub async fn git_branch_delete(
+    path: String,
+    branch: String,
+    force: Option<bool>,
+) -> Result<(), String> {
+    porcelain::branch_delete(&path, branch, force)
+}
+
+#[tauri::command]
 pub async fn git_push(
     path: String,
     remote: Option<String>,
@@ -74,6 +88,81 @@ pub async fn git_pull(
     branch: Option<String>,
 ) -> Result<PullResult, String> {
     porcelain::pull(&path, remote, branch)
+}
+
+#[tauri::command]
+pub async fn git_fetch(path: String, remote: Option<String>) -> Result<FetchResult, String> {
+    porcelain::fetch(&path, remote)
+}
+
+#[tauri::command]
+pub async fn git_merge(
+    path: String,
+    branch: String,
+    no_ff: Option<bool>,
+) -> Result<MergeResult, String> {
+    porcelain::merge(&path, branch, no_ff)
+}
+
+#[tauri::command]
+pub async fn git_cherry_pick(path: String, commit: String) -> Result<CherryPickResult, String> {
+    porcelain::cherry_pick(&path, commit)
+}
+
+#[tauri::command]
+pub async fn git_tag_create(
+    path: String,
+    tag: String,
+    target: Option<String>,
+) -> Result<TagResult, String> {
+    porcelain::tag_create(&path, tag, target)
+}
+
+#[tauri::command]
+pub async fn git_tag_delete(path: String, tag: String) -> Result<TagResult, String> {
+    porcelain::tag_delete(&path, tag)
+}
+
+#[tauri::command]
+pub async fn git_watch_start(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    path: String,
+) -> Result<String, String> {
+    let root = porcelain::discover_repo_root(&path)?;
+
+    {
+        let guard = state
+            .git_watchers
+            .lock()
+            .map_err(|_| "failed to lock watcher map".to_string())?;
+        if guard.contains_key(&root) {
+            return Ok(root);
+        }
+    }
+
+    let watcher = watcher::start_watching(Path::new(&root), app_handle)?;
+
+    let mut guard = state
+        .git_watchers
+        .lock()
+        .map_err(|_| "failed to lock watcher map for insert".to_string())?;
+    guard.insert(root.clone(), watcher);
+
+    Ok(root)
+}
+
+#[tauri::command]
+pub async fn git_watch_stop(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let root = porcelain::discover_repo_root(&path)?;
+
+    let mut guard = state
+        .git_watchers
+        .lock()
+        .map_err(|_| "failed to lock watcher map for remove".to_string())?;
+    guard.remove(&root);
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Deserialize)]

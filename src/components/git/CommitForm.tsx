@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/Input';
 
 interface Props {
   onCommit: (message: string, amend: boolean) => Promise<void>;
+  onFetch: () => Promise<void>;
   onPush: () => Promise<void>;
   onPull: () => Promise<void>;
 }
 
-export function CommitForm({ onCommit, onPush, onPull }: Props) {
+export function CommitForm({ onCommit, onFetch, onPush, onPull }: Props) {
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,7 @@ export function CommitForm({ onCommit, onPush, onPull }: Props) {
         <Button variant="primary" onClick={() => void handleCommit()} disabled={loading || !message.trim()}>
           Commit
         </Button>
+        <Button onClick={() => void onFetch()}>Fetch</Button>
         <Button onClick={() => void onPull()}>Pull</Button>
         <Button onClick={() => void onPush()}>Push</Button>
       </div>

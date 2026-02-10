@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::commands::settings;
 use crate::pty::session::{PtySession, SessionInfo};
 use crate::state::AppState;
 
@@ -21,6 +23,12 @@ struct PtyExitPayload {
     code: i32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct TokenCapturedPayload {
+    session_id: String,
+    inserts: usize,
+}
+
 #[tauri::command]
 pub async fn pty_spawn(
     state: State<'_, AppState>,
@@ -32,8 +40,19 @@ pub async fn pty_spawn(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let pty_system = NativePtySystem::default();
+    let shell_config = settings::load_shell_config_from_path(state.shell_config_path.as_ref())
+        .unwrap_or_else(|_| settings::ShellConfig::default());
+    let shell_info = settings::resolve_shell_with_config(&shell_config, shell)
+        .map_err(|err| format!("failed to resolve shell for spawn: {err}"))?;
 
+    let mut merged_env = shell_config.default_env;
+    if let Some(extra_env) = env {
+        merged_env.extend(extra_env);
+    }
+
+    let resolved_cwd = cwd.unwrap_or_else(|| ".".to_string());
+
+    let pty_system = NativePtySystem::default();
     let pty_pair = pty_system
         .openpty(PtySize {
             rows,
@@ -43,21 +62,14 @@ pub async fn pty_spawn(
         })
         .map_err(|err| format!("failed to open pty pair: {err}"))?;
 
-    let resolved_shell = shell.unwrap_or_else(default_shell);
-    let mut command = CommandBuilder::new(&resolved_shell);
-
-    if !cfg!(target_os = "windows") {
-        command.arg("-l");
+    let mut command = CommandBuilder::new(&shell_info.path);
+    for arg in shell_info.args {
+        command.arg(arg);
     }
+    command.cwd(&resolved_cwd);
 
-    if let Some(cwd) = cwd.as_ref() {
-        command.cwd(cwd);
-    }
-
-    if let Some(env) = env {
-        for (key, value) in env {
-            command.env(key, value);
-        }
+    for (key, value) in merged_env {
+        command.env(key, value);
     }
 
     let child = pty_pair
@@ -79,8 +91,8 @@ pub async fn pty_spawn(
 
     let session = PtySession::new(
         session_id.clone(),
-        resolved_shell,
-        cwd.unwrap_or_else(|| ".".to_string()),
+        shell_info.path,
+        resolved_cwd,
         pid,
         Utc::now(),
         pty_pair.master,
@@ -104,19 +116,50 @@ pub async fn pty_spawn(
 
     std::thread::spawn(move || {
         let mut buf = [0_u8; 4096];
+        let mut pending = Vec::<u8>::new();
+        let mut last_flush = Instant::now();
+
+        let flush_pending = |pending: &mut Vec<u8>| {
+            if pending.is_empty() {
+                return;
+            }
+            let payload = PtyDataPayload {
+                session_id: data_session_id.clone(),
+                data: pending.clone(),
+            };
+            let _ = app_for_data.emit("pty:data", payload);
+            pending.clear();
+        };
+
         loop {
             match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(read_len) => {
-                    let bytes = buf[..read_len].to_vec();
-                    let payload = PtyDataPayload {
-                        session_id: data_session_id.clone(),
-                        data: bytes.clone(),
-                    };
-                    let _ = app_for_data.emit("pty:data", payload);
-                    scraper.ingest(&data_session_id, &bytes);
+                Ok(0) => {
+                    flush_pending(&mut pending);
+                    break;
                 }
-                Err(_) => break,
+                Ok(read_len) => {
+                    let bytes = &buf[..read_len];
+                    let inserts = scraper.ingest(&data_session_id, bytes);
+                    if inserts > 0 {
+                        let _ = app_for_data.emit(
+                            "token:captured",
+                            TokenCapturedPayload {
+                                session_id: data_session_id.clone(),
+                                inserts,
+                            },
+                        );
+                    }
+
+                    pending.extend_from_slice(bytes);
+                    if last_flush.elapsed() >= Duration::from_millis(16) {
+                        flush_pending(&mut pending);
+                        last_flush = Instant::now();
+                    }
+                }
+                Err(_) => {
+                    flush_pending(&mut pending);
+                    break;
+                }
             }
         }
     });
@@ -266,12 +309,4 @@ pub async fn pty_list(state: State<'_, AppState>) -> Result<Vec<SessionInfo>, St
         .map_err(|_| "failed to lock pty sessions for list".to_string())?;
 
     Ok(guard.values().map(PtySession::info).collect())
-}
-
-fn default_shell() -> String {
-    if cfg!(target_os = "windows") {
-        "pwsh".to_string()
-    } else {
-        std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
-    }
 }

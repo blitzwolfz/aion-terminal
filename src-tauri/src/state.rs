@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
+use notify::RecommendedWatcher;
 use tauri::{AppHandle, Manager};
 
 use crate::db;
@@ -10,6 +12,7 @@ pub struct AppState {
     pub pty_manager: PtyManager,
     pub db_path: Arc<PathBuf>,
     pub shell_config_path: Arc<PathBuf>,
+    pub git_watchers: Mutex<HashMap<String, RecommendedWatcher>>,
 }
 
 impl AppState {
@@ -30,6 +33,7 @@ impl AppState {
             pty_manager: PtyManager::new(db_path.clone()),
             db_path: Arc::new(db_path),
             shell_config_path: Arc::new(shell_config_path),
+            git_watchers: Mutex::new(HashMap::new()),
         })
     }
 }

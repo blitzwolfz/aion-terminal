@@ -1,16 +1,24 @@
 import { useCallback, useEffect } from 'react';
 import {
+  gitBranchDelete,
   gitBranches,
   gitCheckout,
+  gitCherryPick,
   gitCommit,
   gitDiff,
+  gitFetch,
   gitLog,
+  gitMerge,
   gitPull,
   gitPush,
   gitStage,
   gitStash,
   gitStatus,
+  gitTagCreate,
+  gitTagDelete,
   gitUnstage,
+  gitWatchStart,
+  gitWatchStop,
   onGitChanged
 } from '@/lib/ipc';
 import { useGitStore } from '@/stores/gitStore';
@@ -42,7 +50,7 @@ export function useGit(repoPath: string) {
       setError(null);
       const [statuses, commits, branches, stashResult] = await Promise.all([
         gitStatus(repoPath),
-        gitLog(repoPath, 50),
+        gitLog(repoPath, 100),
         gitBranches(repoPath),
         gitStash(repoPath, 'List')
       ]);
@@ -63,18 +71,33 @@ export function useGit(repoPath: string) {
 
   useEffect(() => {
     void refresh();
+
     let unlisten: (() => void) | undefined;
+    let startedPath: string | undefined;
+
+    void gitWatchStart(repoPath)
+      .then((root) => {
+        startedPath = root;
+      })
+      .catch(() => {
+        // ignore watcher startup errors for non-git paths
+      });
+
     void onGitChanged(() => {
       void refresh();
     }).then((fn) => {
       unlisten = fn;
     });
+
     return () => {
       if (unlisten) {
         unlisten();
       }
+      if (startedPath) {
+        void gitWatchStop(startedPath);
+      }
     };
-  }, [refresh]);
+  }, [refresh, repoPath]);
 
   const loadDiff = useCallback(
     async (file: string, staged = false) => {
@@ -121,6 +144,23 @@ export function useGit(repoPath: string) {
     [repoPath, refresh]
   );
 
+  const deleteBranch = useCallback(
+    async (branch: string, force = false) => {
+      await gitBranchDelete(repoPath, branch, force);
+      await refresh();
+    },
+    [repoPath, refresh]
+  );
+
+  const fetch = useCallback(
+    async (remote?: string) => {
+      const result = await gitFetch(repoPath, remote);
+      await refresh();
+      return result;
+    },
+    [repoPath, refresh]
+  );
+
   const push = useCallback(
     async (remote?: string, branch?: string, force = false) => {
       const result = await gitPush(repoPath, remote, branch, force);
@@ -133,6 +173,42 @@ export function useGit(repoPath: string) {
   const pull = useCallback(
     async (remote?: string, branch?: string) => {
       const result = await gitPull(repoPath, remote, branch);
+      await refresh();
+      return result;
+    },
+    [repoPath, refresh]
+  );
+
+  const merge = useCallback(
+    async (branch: string, noFf = false) => {
+      const result = await gitMerge(repoPath, branch, noFf);
+      await refresh();
+      return result;
+    },
+    [repoPath, refresh]
+  );
+
+  const cherryPick = useCallback(
+    async (commitOid: string) => {
+      const result = await gitCherryPick(repoPath, commitOid);
+      await refresh();
+      return result;
+    },
+    [repoPath, refresh]
+  );
+
+  const createTag = useCallback(
+    async (tag: string, target?: string) => {
+      const result = await gitTagCreate(repoPath, tag, target);
+      await refresh();
+      return result;
+    },
+    [repoPath, refresh]
+  );
+
+  const deleteTag = useCallback(
+    async (tag: string) => {
+      const result = await gitTagDelete(repoPath, tag);
       await refresh();
       return result;
     },
@@ -155,8 +231,14 @@ export function useGit(repoPath: string) {
     unstage,
     commit,
     checkout,
+    deleteBranch,
+    fetch,
     push,
     pull,
+    merge,
+    cherryPick,
+    createTag,
+    deleteTag,
     stash
   };
 }

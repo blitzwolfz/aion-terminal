@@ -7,6 +7,7 @@ interface SessionState {
   output: Record<string, string[]>;
   activity: Record<string, boolean>;
   createSession: (shell: ShellType, cwd: string) => Session;
+  duplicateSession: (sessionId: string) => Session | null;
   setActiveSession: (sessionId: string) => void;
   renameSession: (sessionId: string, label: string) => void;
   removeSession: (sessionId: string) => void;
@@ -48,6 +49,32 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((state) => ({
       sessions: [...state.sessions, session],
       activeSessionId: state.activeSessionId ?? session.id,
+      output: { ...state.output, [session.id]: [] },
+      activity: { ...state.activity, [session.id]: false }
+    }));
+
+    return session;
+  },
+  duplicateSession: (sessionId) => {
+    const base = get().sessions.find((session) => session.id === sessionId);
+    if (!base) {
+      return null;
+    }
+
+    const session: Session = {
+      id: makeId(),
+      label: `${base.label} Copy`,
+      shell: base.shell,
+      cwd: base.cwd,
+      agent: base.agent,
+      status: 'idle',
+      createdAt: Date.now(),
+      env: { ...base.env }
+    };
+
+    set((state) => ({
+      sessions: [...state.sessions, session],
+      activeSessionId: session.id,
       output: { ...state.output, [session.id]: [] },
       activity: { ...state.activity, [session.id]: false }
     }));

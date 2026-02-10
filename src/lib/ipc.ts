@@ -3,10 +3,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   BranchList,
   BudgetSummary,
+  CherryPickResult,
   CommitEntry,
   CommitInfo,
   DiffResult,
   FileStatusEntry,
+  FetchResult,
+  MergeResult,
   PtyDataEvent,
   PtyExitEvent,
   PullResult,
@@ -15,6 +18,8 @@ import type {
   ShellInfo,
   StashAction,
   StashResult,
+  TagResult,
+  TokenCapturedEvent,
   UsageRecord
 } from './types';
 
@@ -84,12 +89,44 @@ export async function gitCheckout(path: string, branch: string, create = false) 
   return invoke('git_checkout', { path, branch, create });
 }
 
+export async function gitBranchDelete(path: string, branch: string, force = false) {
+  return invoke('git_branch_delete', { path, branch, force });
+}
+
 export async function gitPush(path: string, remote?: string, branch?: string, force = false) {
   return invoke('git_push', { path, remote, branch, force }) as Promise<PushResult>;
 }
 
 export async function gitPull(path: string, remote?: string, branch?: string) {
   return invoke('git_pull', { path, remote, branch }) as Promise<PullResult>;
+}
+
+export async function gitFetch(path: string, remote?: string) {
+  return invoke('git_fetch', { path, remote }) as Promise<FetchResult>;
+}
+
+export async function gitMerge(path: string, branch: string, noFf = false) {
+  return invoke('git_merge', { path, branch, no_ff: noFf }) as Promise<MergeResult>;
+}
+
+export async function gitCherryPick(path: string, commit: string) {
+  return invoke('git_cherry_pick', { path, commit }) as Promise<CherryPickResult>;
+}
+
+export async function gitTagCreate(path: string, tag: string, target?: string) {
+  return invoke('git_tag_create', { path, tag, target }) as Promise<TagResult>;
+}
+
+export async function gitTagDelete(path: string, tag: string) {
+  return invoke('git_tag_delete', { path, tag }) as Promise<TagResult>;
+}
+
+export async function gitWatchStart(path: string) {
+  return invoke('git_watch_start', { path }) as Promise<string>;
+}
+
+export async function gitWatchStop(path: string) {
+  return invoke('git_watch_stop', { path });
 }
 
 export async function gitStash(path: string, action: StashAction, message?: string, index?: number) {
@@ -144,4 +181,12 @@ export async function onPtyExit(handler: (payload: PtyExitEvent) => void): Promi
 
 export async function onGitChanged(handler: () => void): Promise<UnlistenFn> {
   return listen('git:changed', () => handler());
+}
+
+export async function onTokenCaptured(
+  handler: (payload: TokenCapturedEvent) => void
+): Promise<UnlistenFn> {
+  return listen<TokenCapturedEvent>('token:captured', (event) => {
+    handler(event.payload);
+  });
 }

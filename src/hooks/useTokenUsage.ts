@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { queryBudget, queryUsage, setBudget } from '@/lib/ipc';
+import { onTokenCaptured, queryBudget, queryUsage, setBudget } from '@/lib/ipc';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { UsageRecord } from '@/lib/types';
 
@@ -39,6 +39,31 @@ export function useTokenUsage() {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    void onTokenCaptured(() => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(() => {
+        void refresh();
+      }, 100);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (unlisten) {
+        unlisten();
+      }
+    };
   }, [refresh]);
 
   const updateBudget = useCallback(

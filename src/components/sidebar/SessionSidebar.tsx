@@ -11,6 +11,8 @@ interface Props {
   onSelect: (sessionId: string) => void;
   onRename: (sessionId: string, label: string) => void;
   onKill: (sessionId: string) => void;
+  onDuplicate: (sessionId: string) => void;
+  onDismiss: (sessionId: string) => void;
   onReorder: (sessions: Session[]) => void;
 }
 
@@ -22,6 +24,8 @@ export function SessionSidebar({
   onSelect,
   onRename,
   onKill,
+  onDuplicate,
+  onDismiss,
   onReorder
 }: Props) {
   return (
@@ -43,6 +47,8 @@ export function SessionSidebar({
                 onSelect={onSelect}
                 onRename={onRename}
                 onKill={onKill}
+                onDuplicate={onDuplicate}
+                onDismiss={onDismiss}
               />
             </Reorder.Item>
           ))}

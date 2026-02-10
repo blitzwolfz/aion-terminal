@@ -33,6 +33,11 @@ export interface PtyExitEvent {
   code: number;
 }
 
+export interface TokenCapturedEvent {
+  session_id: string;
+  inserts: number;
+}
+
 export interface FileStatusEntry {
   path: string;
   status: string;
@@ -85,6 +90,26 @@ export interface PushResult {
 }
 
 export interface PullResult {
+  ok: boolean;
+  detail: string;
+}
+
+export interface FetchResult {
+  ok: boolean;
+  detail: string;
+}
+
+export interface MergeResult {
+  ok: boolean;
+  detail: string;
+}
+
+export interface CherryPickResult {
+  ok: boolean;
+  detail: string;
+}
+
+export interface TagResult {
   ok: boolean;
   detail: string;
 }
