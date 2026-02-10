@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
-import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 import { createFitAddon } from './FitAddon';
 import { TERMINAL_OPTIONS, TERMINAL_THEME } from '@/lib/constants';
@@ -31,15 +30,18 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     terminal.loadAddon(fitAddon);
 
     // Prefer WebGL renderer for high-throughput terminal output.
-    try {
-      const webglAddon = new WebglAddon();
-      terminal.loadAddon(webglAddon);
-      webglAddon.onContextLoss(() => {
-        // xterm falls back to software rendering when WebGL context is lost.
+    // Loaded lazily to avoid hard runtime failures on unsupported WebViews.
+    void import('@xterm/addon-webgl')
+      .then(({ WebglAddon }) => {
+        const webglAddon = new WebglAddon();
+        terminal.loadAddon(webglAddon);
+        webglAddon.onContextLoss(() => {
+          // xterm falls back to software rendering when WebGL context is lost.
+        });
+      })
+      .catch(() => {
+        // Keep software renderer fallback when WebGL is unavailable.
       });
-    } catch {
-      // Keep software renderer fallback when WebGL is unavailable.
-    }
 
     terminal.open(containerRef.current);
     fitAddon.fit();
