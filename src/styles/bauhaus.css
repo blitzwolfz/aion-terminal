@@ -1,0 +1,30 @@
+:root {
+  --surface-primary: #111827;
+  --surface-secondary: #1f2937;
+  --surface-tertiary: #374151;
+  --border-default: #4b5563;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --accent-primary: #059669;
+  --accent-hover: #047857;
+  --accent-muted: #064e3b;
+  --accent-surface: #ecfdf5;
+  --status-success: #10b981;
+  --status-error: #ef4444;
+  --status-warning: #f59e0b;
+  --status-info: #6b7280;
+}
+
+@layer utilities {
+  .bg-surface-primary { background-color: var(--surface-primary); }
+  .bg-surface-secondary { background-color: var(--surface-secondary); }
+  .bg-surface-tertiary { background-color: var(--surface-tertiary); }
+  .text-text-primary { color: var(--text-primary); }
+  .text-text-secondary { color: var(--text-secondary); }
+  .text-text-tertiary { color: var(--text-tertiary); }
+  .border-default { border-color: var(--border-default); }
+  .bg-accent-primary { background-color: var(--accent-primary); }
+  .bg-accent-muted { background-color: var(--accent-muted); }
+  .text-accent-primary { color: var(--accent-primary); }
+}
