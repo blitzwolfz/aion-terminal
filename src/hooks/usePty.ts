@@ -8,6 +8,7 @@ const encoder = new TextEncoder();
 export function usePty() {
   const appendOutput = useSessionStore((state) => state.appendOutput);
   const setStatus = useSessionStore((state) => state.setStatus);
+  const setAgent = useSessionStore((state) => state.setAgent);
 
   useEffect(() => {
     let unlistenData: (() => void) | undefined;
@@ -17,6 +18,13 @@ export function usePty() {
       const data = decoder.decode(Uint8Array.from(payload.data));
       appendOutput(payload.session_id, data);
       setStatus(payload.session_id, 'running');
+
+      const normalized = data.toLowerCase();
+      if (normalized.includes('claude code') || normalized.includes('/cost')) {
+        setAgent(payload.session_id, 'claude-code');
+      } else if (normalized.includes('copilot') || normalized.includes('github copilot')) {
+        setAgent(payload.session_id, 'copilot-cli');
+      }
     }).then((fn) => {
       unlistenData = fn;
     });
@@ -35,7 +43,7 @@ export function usePty() {
         unlistenExit();
       }
     };
-  }, [appendOutput, setStatus]);
+  }, [appendOutput, setAgent, setStatus]);
 
   return useMemo(
     () => ({

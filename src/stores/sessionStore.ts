@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, SessionStatus, ShellType } from '@/lib/types';
+import type { AgentType, Session, SessionStatus, ShellType } from '@/lib/types';
 
 interface SessionState {
   sessions: Session[];
@@ -13,6 +13,7 @@ interface SessionState {
   removeSession: (sessionId: string) => void;
   reorderSessions: (fromIndex: number, toIndex: number) => void;
   setStatus: (sessionId: string, status: SessionStatus) => void;
+  setAgent: (sessionId: string, agent: AgentType) => void;
   setActivity: (sessionId: string, active: boolean) => void;
   appendOutput: (sessionId: string, chunk: string) => void;
   clearOutput: (sessionId: string) => void;
@@ -121,6 +122,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessions: state.sessions.map((session) =>
         session.id === sessionId ? { ...session, status } : session
       )
+    }));
+  },
+  setAgent: (sessionId, agent) => {
+    set((state) => ({
+      sessions: state.sessions.map((session) => {
+        if (session.id !== sessionId) {
+          return session;
+        }
+
+        const defaultLabel = /^Session\\s+\\d+$/i.test(session.label);
+        if (!defaultLabel || !agent) {
+          return { ...session, agent };
+        }
+
+        const cwdLabel = session.cwd.split('/').filter(Boolean).pop() ?? 'workspace';
+        const agentLabel = agent === 'claude-code' ? 'Claude Code' : 'Copilot CLI';
+        return { ...session, agent, label: `${agentLabel} — ${cwdLabel}` };
+      })
     }));
   },
   setActivity: (sessionId, active) => {
