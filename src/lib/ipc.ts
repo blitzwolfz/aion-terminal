@@ -27,7 +27,7 @@ export async function ptySpawn(params: {
   rows: number;
 }) {
   return invoke('pty_spawn', {
-    sessionId: params.sessionId,
+    session_id: params.sessionId,
     shell: params.shell,
     cwd: params.cwd,
     env: params.env,
@@ -37,15 +37,15 @@ export async function ptySpawn(params: {
 }
 
 export async function ptyWrite(sessionId: string, data: Uint8Array) {
-  return invoke('pty_write', { sessionId, data: Array.from(data) });
+  return invoke('pty_write', { session_id: sessionId, data: Array.from(data) });
 }
 
 export async function ptyResize(sessionId: string, cols: number, rows: number) {
-  return invoke('pty_resize', { sessionId, cols, rows });
+  return invoke('pty_resize', { session_id: sessionId, cols, rows });
 }
 
 export async function ptyKill(sessionId: string) {
-  return invoke('pty_kill', { sessionId });
+  return invoke('pty_kill', { session_id: sessionId });
 }
 
 export async function ptyList() {
@@ -106,7 +106,7 @@ export async function queryUsage(params: {
     from: params.from,
     to: params.to,
     agent: params.agent,
-    sessionId: params.sessionId
+    session_id: params.sessionId
   }) as Promise<UsageRecord[]>;
 }
 
@@ -115,11 +115,11 @@ export async function queryBudget(month: string) {
 }
 
 export async function setBudget(month: string, limitUsd: number) {
-  return invoke('set_budget', { month, limitUsd });
+  return invoke('set_budget', { month, limit_usd: limitUsd });
 }
 
 export async function resolveShell(config: ShellConfig, overrideShell?: string) {
-  return invoke('resolve_shell', { config, overrideShell }) as Promise<ShellInfo>;
+  return invoke('resolve_shell', { config, override_shell: overrideShell }) as Promise<ShellInfo>;
 }
 
 export async function save_shell_config(config: ShellConfig) {
