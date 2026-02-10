@@ -29,14 +29,18 @@ Design direction follows a Bauhaus-style UI with an emerald accent palette, geom
 
 - PTY commands: `pty_spawn`, `pty_write`, `pty_resize`, `pty_kill`, `pty_list`
 - Session lifecycle management with per-session process state
-- PTY output event streaming via `pty:data`
+- PTY output event streaming via `pty:data` with buffered emission cadence
 - PTY exit event emission via `pty:exit`
+- Token capture events via `token:captured`
+- WebGL renderer enablement with automatic renderer fallback
 
 ### Session Sidebar
 
-- Multi-session creation, switching, rename, kill
+- Multi-session creation, switching, rename, kill, duplicate, and dismiss
 - Activity indicators and session state labels
 - Drag reorder via Framer Motion reorder group
+- Keyboard shortcuts (`Cmd/Ctrl+T`, `Cmd/Ctrl+W`, `Cmd/Ctrl+Tab`)
+- Agent auto-labeling for Claude Code and Copilot sessions
 
 ### Shell Settings
 
@@ -52,12 +56,14 @@ Design direction follows a Bauhaus-style UI with an emerald accent palette, geom
   - `query_budget`
   - `set_budget`
 - Dashboard panels for budget, timeline, and agent breakdown
+- Live dashboard refresh on token capture events
 
 ### Git Sidecar
 
-- Status, diff, stage, unstage, commit, log, branch list, checkout
+- Status, diff (unified + side-by-side), stage, unstage, commit, log, branch list, checkout
+- Branch delete, fetch, merge, cherry-pick, tag create/delete
 - Push/pull/stash wrappers
-- Git change watcher module with debounce event emission (`git:changed`)
+- Git change watcher lifecycle (`git_watch_start`/`git_watch_stop`) with debounced `git:changed` event refresh
 
 ## Local Development
 
@@ -97,8 +103,14 @@ pnpm tsc --noEmit
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+### Production build
+
+```bash
+pnpm build
+```
+
 ## Notes
 
-- Push/pull/stash operations shell out to `git` for porcelain behavior parity.
-- Advanced P1/P2 Git features (hunk-level staging, merge UI, blame, tags, cherry-pick) are scaffold-ready but not fully implemented.
-- The current implementation prioritizes the PRD's core architecture and P0 operational path.
+- Push/pull/fetch/merge/cherry-pick/stash operations use system `git` for porcelain behavior parity.
+- Git watcher events are started/stopped per active repo path from the frontend hook.
+- `src-tauri/icons/icon.png` is required by `tauri::generate_context!` and included in-repo.
