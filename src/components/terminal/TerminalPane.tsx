@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Terminal } from 'xterm';
-import 'xterm/css/xterm.css';
+import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 import { createFitAddon } from './FitAddon';
 import { TERMINAL_OPTIONS, TERMINAL_THEME } from '@/lib/constants';
 

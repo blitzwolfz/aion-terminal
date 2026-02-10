@@ -2,7 +2,7 @@
 
 Aion is a Tauri 2.0 desktop application for orchestrating local AI coding agents in native PTY sessions. It combines:
 
-- Multi-session terminal orchestration (`portable-pty` + `xterm.js`)
+- Multi-session terminal orchestration (`portable-pty` + `@xterm/xterm`)
 - Passive AI usage and cost scraping persisted to SQLite
 - Integrated Git sidecar operations (`git2` + system git for push/pull/stash)
 
@@ -10,7 +10,7 @@ Design direction follows a Bauhaus-style UI with an emerald accent palette, geom
 
 ## Tech Stack
 
-- Frontend: React 18, TypeScript, Vite 5, Tailwind CSS 3, Framer Motion, xterm.js
+- Frontend: React 19, TypeScript, Vite 5, Tailwind CSS 3, Framer Motion, `@xterm/xterm`
 - Backend: Rust, Tauri 2, portable-pty, git2, notify, rusqlite
 - Persistence: SQLite (`aion.db`) in app data directory
 
