@@ -35,9 +35,7 @@
   "plugins": {
     "sql": {
       "preload": [
-        {
-          "db": "sqlite:aion.db"
-        }
+        "sqlite:aion.db"
       ]
     }
   }
