@@ -1,9 +1,212 @@
+import { useEffect, useMemo, useState } from 'react';
+import { APP_NAME, DEFAULT_CWD } from '@/lib/constants';
+import { usePty } from '@/hooks/usePty';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { SessionSidebar } from '@/components/sidebar/SessionSidebar';
+import { TerminalPane } from '@/components/terminal/TerminalPane';
+import { TerminalToolbar } from '@/components/terminal/TerminalToolbar';
+import { GitPanel } from '@/components/git/GitPanel';
+import { UsageDashboard } from '@/components/dashboard/UsageDashboard';
+import { SettingsModal } from '@/components/settings/SettingsModal';
+import type { Session, ShellType } from '@/lib/types';
+
+function inferShell(): ShellType {
+  const isWindows = navigator.userAgent.toLowerCase().includes('windows');
+  return isWindows ? 'pwsh' : 'zsh';
+}
+
 export default function App() {
+  const pty = usePty();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [rightView, setRightView] = useState<'git' | 'dashboard'>('git');
+  const {
+    sessions,
+    activeSessionId,
+    output,
+    activity,
+    createSession,
+    removeSession,
+    renameSession,
+    setActiveSession,
+    setStatus,
+    reorderSessions
+  } = useSessionStore((state) => ({
+    sessions: state.sessions,
+    activeSessionId: state.activeSessionId,
+    output: state.output,
+    activity: state.activity,
+    createSession: state.createSession,
+    removeSession: state.removeSession,
+    renameSession: state.renameSession,
+    setActiveSession: state.setActiveSession,
+    setStatus: state.setStatus,
+    reorderSessions: state.reorderSessions
+  }));
+
+  const shellConfig = useSettingsStore((state) => state.shellConfig);
+
+  const activeSession = useMemo(
+    () => sessions.find((session) => session.id === activeSessionId) ?? null,
+    [sessions, activeSessionId]
+  );
+
+  useEffect(() => {
+    async function ensureInitialSession() {
+      if (sessions.length > 0) {
+        return;
+      }
+
+      const fallbackShell = inferShell();
+      const preferredShell = navigator.userAgent.toLowerCase().includes('windows')
+        ? shellConfig.defaultShell.win32
+        : shellConfig.defaultShell.darwin;
+      const shell = preferredShell === 'custom' ? fallbackShell : preferredShell;
+
+      const session = createSession(shell, DEFAULT_CWD);
+      try {
+        await pty.spawn({
+          sessionId: session.id,
+          shell,
+          cwd: DEFAULT_CWD,
+          env: shellConfig.defaultEnv,
+          cols: 120,
+          rows: 32
+        });
+      } catch (error) {
+        setStatus(session.id, 'terminated');
+        console.error(error);
+      }
+    }
+
+    void ensureInitialSession();
+  }, [createSession, pty, sessions.length, setStatus, shellConfig.defaultEnv, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32]);
+
+  async function handleCreateSession() {
+    const fallbackShell = inferShell();
+    const preferredShell = navigator.userAgent.toLowerCase().includes('windows')
+      ? shellConfig.defaultShell.win32
+      : shellConfig.defaultShell.darwin;
+    const shell = preferredShell === 'custom' ? fallbackShell : preferredShell;
+
+    const session = createSession(shell, DEFAULT_CWD);
+    setActiveSession(session.id);
+
+    try {
+      await pty.spawn({
+        sessionId: session.id,
+        shell,
+        cwd: DEFAULT_CWD,
+        env: shellConfig.defaultEnv,
+        cols: 120,
+        rows: 32
+      });
+    } catch (error) {
+      setStatus(session.id, 'terminated');
+      console.error(error);
+    }
+  }
+
+  async function handleKillSession(sessionId: string) {
+    try {
+      await pty.kill(sessionId);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      removeSession(sessionId);
+    }
+  }
+
+  function handleSessionReorder(nextSessions: Session[]) {
+    if (nextSessions.length !== sessions.length) {
+      return;
+    }
+    nextSessions.forEach((session, toIndex) => {
+      const fromIndex = sessions.findIndex((item) => item.id === session.id);
+      if (fromIndex !== toIndex) {
+        reorderSessions(fromIndex, toIndex);
+      }
+    });
+  }
+
+  const repoPath = activeSession?.cwd ?? DEFAULT_CWD;
+  const terminalOutput = activeSession ? output[activeSession.id] ?? [] : [];
+
   return (
-    <main className="min-h-screen bg-surface-primary text-text-primary">
-      <div className="flex h-screen items-center justify-center">
-        <h1 className="text-2xl font-bold tracking-wide">Aion</h1>
+    <main className="h-screen w-screen bg-surface-primary text-text-primary">
+      <div className="flex h-full flex-col">
+        <header className="flex h-10 items-center border-b border-default bg-surface-secondary px-3">
+          <h1 className="font-sans text-sm font-bold uppercase tracking-[0.06em]">{APP_NAME}</h1>
+          <div className="ml-4 flex gap-2">
+            <button
+              className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${rightView === 'git' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+              onClick={() => setRightView('git')}
+            >
+              Git
+            </button>
+            <button
+              className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${rightView === 'dashboard' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+              onClick={() => setRightView('dashboard')}
+            >
+              Dashboard
+            </button>
+          </div>
+        </header>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[240px_1fr_520px]">
+          <SessionSidebar
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            activity={activity}
+            onCreate={() => {
+              void handleCreateSession();
+            }}
+            onSelect={(sessionId) => setActiveSession(sessionId)}
+            onRename={renameSession}
+            onKill={(sessionId) => {
+              void handleKillSession(sessionId);
+            }}
+            onReorder={handleSessionReorder}
+          />
+
+          <section className="flex min-h-0 flex-col border-r border-default">
+            <TerminalToolbar
+              session={activeSession}
+              onNewSession={() => {
+                void handleCreateSession();
+              }}
+              onKillSession={() => {
+                if (activeSession) {
+                  void handleKillSession(activeSession.id);
+                }
+              }}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+            <div className="min-h-0 flex-1">
+              <TerminalPane
+                sessionId={activeSession?.id ?? null}
+                output={terminalOutput}
+                onInput={(value) => {
+                  if (activeSession) {
+                    void pty.write(activeSession.id, value);
+                  }
+                }}
+                onResize={(cols, rows) => {
+                  if (activeSession) {
+                    void pty.resize(activeSession.id, cols, rows);
+                  }
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="min-h-0">
+            {rightView === 'git' ? <GitPanel repoPath={repoPath} /> : <UsageDashboard />}
+          </section>
+        </div>
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </main>
   );
 }
