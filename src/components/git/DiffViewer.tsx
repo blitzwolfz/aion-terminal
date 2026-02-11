@@ -7,12 +7,12 @@ interface Props {
 
 function lineColor(type: 'context' | 'add' | 'del') {
   if (type === 'add') {
-    return 'bg-[#064e3b] text-[#d1fae5]';
+    return 'bg-[#D1FAE5] text-[#065F46]';
   }
   if (type === 'del') {
-    return 'bg-[#7f1d1d] text-[#fecaca]';
+    return 'bg-[#FEE2E2] text-[#991B1B]';
   }
-  return 'text-text-secondary';
+  return 'text-[var(--text-secondary)]';
 }
 
 function toSideBySide(lines: DiffLine[]) {
@@ -54,9 +54,7 @@ export function DiffViewer({ diff }: Props) {
   const [mode, setMode] = useState<'unified' | 'side'>('unified');
 
   const sideBySide = useMemo(() => {
-    if (!diff) {
-      return [];
-    }
+    if (!diff) return [];
     return diff.hunks.map((hunk) => ({
       header: hunk.header,
       rows: toSideBySide(hunk.lines)
@@ -64,37 +62,49 @@ export function DiffViewer({ diff }: Props) {
   }, [diff]);
 
   if (!diff || diff.hunks.length === 0) {
-    return <div className="p-4 text-xs text-text-secondary">Select a file to view a diff.</div>;
+    return (
+      <div className="flex items-center justify-center p-6 text-xs text-[var(--text-secondary)]">
+        Select a file to view its diff.
+      </div>
+    );
   }
 
   return (
     <div className="h-full overflow-auto p-2 font-mono text-[11px]">
-      <div className="mb-2 flex gap-2">
+      <div className="mb-2 flex gap-1">
         <button
-          className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${mode === 'unified' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+          className={`h-6 border-2 px-2 text-[10px] font-bold uppercase tracking-widest ${
+            mode === 'unified'
+              ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-deep)]'
+              : 'border-[var(--border-default)] text-[var(--text-secondary)]'
+          }`}
           onClick={() => setMode('unified')}
         >
           Unified
         </button>
         <button
-          className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${mode === 'side' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+          className={`h-6 border-2 px-2 text-[10px] font-bold uppercase tracking-widest ${
+            mode === 'side'
+              ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-deep)]'
+              : 'border-[var(--border-default)] text-[var(--text-secondary)]'
+          }`}
           onClick={() => setMode('side')}
         >
-          Side-by-side
+          Split
         </button>
       </div>
 
       {mode === 'unified'
         ? diff.hunks.map((hunk) => (
-            <section key={hunk.header} className="mb-3 border border-default">
-              <header className="border-b border-default bg-surface-tertiary px-2 py-1 text-[10px] uppercase tracking-[0.04em] text-text-secondary">
+            <section key={hunk.header} className="mb-3 border-2 border-[var(--border-default)]">
+              <header className="border-b-2 border-[var(--border-default)] bg-[var(--surface-tertiary)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">
                 {hunk.header}
               </header>
               <div>
                 {hunk.lines.map((line, index) => (
-                  <div key={`${hunk.header}-${index}`} className={`px-2 py-[2px] ${lineColor(line.type)}`}>
-                    <span className="mr-3 inline-block w-10 text-right text-text-tertiary">{line.old_ln ?? ''}</span>
-                    <span className="mr-3 inline-block w-10 text-right text-text-tertiary">{line.new_ln ?? ''}</span>
+                  <div key={`${hunk.header}-${index}`} className={`px-2 py-[1px] ${lineColor(line.type)}`}>
+                    <span className="mr-2 inline-block w-8 text-right text-[var(--text-tertiary)]">{line.old_ln ?? ''}</span>
+                    <span className="mr-2 inline-block w-8 text-right text-[var(--text-tertiary)]">{line.new_ln ?? ''}</span>
                     <span>{line.content}</span>
                   </div>
                 ))}
@@ -102,23 +112,23 @@ export function DiffViewer({ diff }: Props) {
             </section>
           ))
         : sideBySide.map((hunk) => (
-            <section key={hunk.header} className="mb-3 border border-default">
-              <header className="border-b border-default bg-surface-tertiary px-2 py-1 text-[10px] uppercase tracking-[0.04em] text-text-secondary">
+            <section key={hunk.header} className="mb-3 border-2 border-[var(--border-default)]">
+              <header className="border-b-2 border-[var(--border-default)] bg-[var(--surface-tertiary)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">
                 {hunk.header}
               </header>
               <div className="grid grid-cols-2">
-                <div className="border-r border-default">
+                <div className="border-r-2 border-[var(--border-default)]">
                   {hunk.rows.map((row, index) => (
-                    <div key={`l-${hunk.header}-${index}`} className={`px-2 py-[2px] ${lineColor(row.leftType)}`}>
-                      <span className="mr-3 inline-block w-10 text-right text-text-tertiary">{row.leftLn ?? ''}</span>
+                    <div key={`l-${hunk.header}-${index}`} className={`px-2 py-[1px] ${lineColor(row.leftType)}`}>
+                      <span className="mr-2 inline-block w-8 text-right text-[var(--text-tertiary)]">{row.leftLn ?? ''}</span>
                       <span>{row.left}</span>
                     </div>
                   ))}
                 </div>
                 <div>
                   {hunk.rows.map((row, index) => (
-                    <div key={`r-${hunk.header}-${index}`} className={`px-2 py-[2px] ${lineColor(row.rightType)}`}>
-                      <span className="mr-3 inline-block w-10 text-right text-text-tertiary">{row.rightLn ?? ''}</span>
+                    <div key={`r-${hunk.header}-${index}`} className={`px-2 py-[1px] ${lineColor(row.rightType)}`}>
+                      <span className="mr-2 inline-block w-8 text-right text-[var(--text-tertiary)]">{row.rightLn ?? ''}</span>
                       <span>{row.right}</span>
                     </div>
                   ))}

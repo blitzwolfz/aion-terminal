@@ -12,25 +12,31 @@ export function TerminalToolbar({ session, onNewSession, onKillSession, onOpenSe
   const status = session?.status ?? 'idle';
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-default bg-surface-primary px-3">
+    <header className="flex h-11 items-center justify-between border-b-2 border-[var(--border-strong)] bg-[var(--surface-primary)] px-3">
       <div className="flex min-w-0 items-center gap-2">
         <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            status === 'running' ? 'bg-[#22c55e]' : status === 'terminated' ? 'bg-[#ef4444]' : 'bg-[#0ea5e9]'
+          className={`h-3 w-3 border-2 border-[var(--border-strong)] ${
+            status === 'running'
+              ? 'bg-[var(--status-success)]'
+              : status === 'terminated'
+                ? 'bg-[var(--status-error)]'
+                : 'bg-[var(--status-info)]'
           }`}
         />
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold">{session?.label ?? 'No Active Session'}</p>
-          <p className="truncate text-[10px] text-text-secondary">
-            {session ? `${session.shell} - ${session.cwd}` : 'Create a session to start working'}
+          <p className="truncate text-xs font-semibold uppercase tracking-wide">
+            {session?.label ?? 'No Active Session'}
+          </p>
+          <p className="truncate text-[10px] text-[var(--text-secondary)]">
+            {session ? `${session.shell} \u2014 ${session.cwd}` : 'Create a session to begin'}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button compact onClick={onOpenSettings}>Settings</Button>
-        <Button compact onClick={onKillSession} disabled={!session}>Kill</Button>
-        <Button compact variant="primary" onClick={onNewSession}>New Session</Button>
+      <div className="flex items-center gap-1">
+        <Button compact variant="ghost" onClick={onOpenSettings}>Settings</Button>
+        <Button compact variant="danger" onClick={onKillSession} disabled={!session || session.status === 'terminated'}>Kill</Button>
+        <Button compact variant="primary" onClick={onNewSession}>+ New</Button>
       </div>
     </header>
   );

@@ -6,25 +6,24 @@ import './styles/bauhaus.css';
 
 function showStartupError(message: string) {
   const root = document.getElementById('root');
-  if (!root) {
-    return;
-  }
+  if (!root) return;
 
   root.innerHTML = `
     <div style="
       height: 100%;
       width: 100%;
       margin: 0;
-      padding: 16px;
+      padding: 24px;
       box-sizing: border-box;
-      background: #111827;
-      color: #f9fafb;
-      font-family: monospace;
+      background: #F5F0E8;
+      color: #1A1A1A;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
       white-space: pre-wrap;
       overflow: auto;
     ">
-      <h2 style="margin: 0 0 12px; color: #ef4444;">Aion Startup Error</h2>
-      <div>${message}</div>
+      <h2 style="margin: 0 0 12px; color: #DC2626; font-family: Syne, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">Aion Startup Error</h2>
+      <div style="padding: 12px; border: 2px solid #DC2626; background: #FEE2E2;">${message}</div>
     </div>
   `;
 }

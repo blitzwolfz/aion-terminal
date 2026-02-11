@@ -12,9 +12,7 @@ export function LogGraph({ commits, onCherryPick }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) {
-      return commits;
-    }
+    if (!q) return commits;
 
     return commits.filter((commit) => {
       return (
@@ -26,24 +24,28 @@ export function LogGraph({ commits, onCherryPick }: Props) {
   }, [commits, query]);
 
   return (
-    <div className="border-t border-default p-2">
+    <div className="border-t-2 border-[var(--border-default)] p-2">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[0.04em] text-text-secondary">History</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">History</p>
         <input
-          className="h-6 w-36 border border-default bg-surface-secondary px-2 text-[10px]"
-          placeholder="search"
+          className="h-6 w-36 border-2 border-[var(--border-default)] bg-[var(--surface-elevated)] px-2 text-[10px]"
+          placeholder="search commits"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
       <div className="max-h-56 space-y-1 overflow-auto">
         {filtered.map((commit) => (
-          <div key={commit.oid} className="border border-default px-2 py-1">
+          <div key={commit.oid} className="border-2 border-[var(--border-default)] px-2 py-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-xs">{commit.message}</p>
-                <p className="text-[10px] text-text-secondary">
-                  {commit.short_oid} • {commit.author} • {new Date(commit.date).toLocaleString()}
+                <p className="truncate text-xs font-medium">{commit.message}</p>
+                <p className="text-[10px] text-[var(--text-secondary)]">
+                  <span className="font-mono font-semibold text-[var(--accent-deep)]">{commit.short_oid}</span>
+                  {' \u2022 '}
+                  {commit.author}
+                  {' \u2022 '}
+                  {new Date(commit.date).toLocaleString()}
                 </p>
               </div>
               <Button compact onClick={() => void onCherryPick(commit.oid)}>Cherry</Button>

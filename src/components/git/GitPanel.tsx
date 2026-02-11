@@ -46,107 +46,117 @@ export function GitPanel({ repoPath }: Props) {
   const changedCount = useMemo(() => statuses.length, [statuses]);
 
   return (
-    <section className="flex h-full flex-col bg-transparent">
-      <header className="flex h-12 items-center justify-between border-b border-default bg-surface-primary px-3">
+    <section className="flex h-full flex-col bg-[var(--surface-secondary)]">
+      <header className="flex h-11 items-center justify-between border-b-2 border-[var(--border-strong)] bg-[var(--surface-primary)] px-3">
         <div>
-          <h3 className="text-sm font-semibold tracking-[0.02em]">Git Sidecar</h3>
-          <p className="text-[10px] text-text-secondary">{repoPath}</p>
+          <h3 className="font-display text-sm font-bold uppercase tracking-widest">Git</h3>
         </div>
-        <span className="rounded-md border border-default bg-surface-tertiary px-2 py-1 text-[10px] text-text-secondary">
+        <span className="border-2 border-[var(--border-default)] bg-[var(--surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
           {changedCount} changed
         </span>
       </header>
 
-      {error ? <div className="border-b border-default px-3 py-2 text-xs text-[#fda4af]">{error}</div> : null}
-      {loading ? <div className="border-b border-default px-3 py-2 text-xs text-text-secondary">Refreshing...</div> : null}
-
-      <BranchSelector
-        branches={branches}
-        onCheckout={checkout}
-        onDelete={deleteBranch}
-        onMerge={async (branch) => {
-          await merge(branch, false);
-        }}
-      />
-
-      <div className="border-b border-default p-2">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-text-secondary">Tags</p>
-        <div className="flex gap-2">
-          <Input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder="v1.0.0" />
-          <Button
-            compact
-            onClick={() => {
-              if (tagName.trim()) {
-                void createTag(tagName.trim());
-                setTagName('');
-              }
-            }}
-          >
-            Create
-          </Button>
-          <Button
-            compact
-            variant="danger"
-            onClick={() => {
-              if (tagName.trim()) {
-                void deleteTag(tagName.trim());
-                setTagName('');
-              }
-            }}
-          >
-            Delete
-          </Button>
+      {error ? (
+        <div className="border-b-2 border-[var(--status-error)] bg-[#FEE2E2] px-3 py-2 text-xs font-medium text-[#991B1B]">
+          {error}
         </div>
-      </div>
+      ) : null}
+      {loading ? (
+        <div className="border-b border-[var(--border-default)] bg-[var(--accent-surface)] px-3 py-2 text-xs text-[var(--accent-deep)]">
+          Refreshing...
+        </div>
+      ) : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[270px_1fr]">
-        <FileTree
-          files={statuses}
-          selectedFile={selectedFile}
-          onSelect={(file) => {
-            setSelectedFile(file);
-            void loadDiff(file, false);
+      <div className="min-h-0 flex-1 overflow-auto">
+        <BranchSelector
+          branches={branches}
+          onCheckout={checkout}
+          onDelete={deleteBranch}
+          onMerge={async (branch) => {
+            await merge(branch, false);
           }}
-          onStage={(file) => void stage([file])}
-          onUnstage={(file) => void unstage([file])}
         />
-        <DiffViewer diff={diff} />
+
+        <div className="border-b-2 border-[var(--border-default)] p-2">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Tags</p>
+          <div className="flex gap-1">
+            <Input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder="v1.0.0" />
+            <Button
+              compact
+              variant="primary"
+              onClick={() => {
+                if (tagName.trim()) {
+                  void createTag(tagName.trim());
+                  setTagName('');
+                }
+              }}
+            >
+              Create
+            </Button>
+            <Button
+              compact
+              variant="danger"
+              onClick={() => {
+                if (tagName.trim()) {
+                  void deleteTag(tagName.trim());
+                  setTagName('');
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid min-h-[200px] grid-cols-1 lg:grid-cols-[240px_1fr]">
+          <FileTree
+            files={statuses}
+            selectedFile={selectedFile}
+            onSelect={(file) => {
+              setSelectedFile(file);
+              void loadDiff(file, false);
+            }}
+            onStage={(file) => void stage([file])}
+            onUnstage={(file) => void unstage([file])}
+          />
+          <DiffViewer diff={diff} />
+        </div>
+
+        <CommitForm
+          onCommit={async (message, amend) => {
+            await commit(message, amend);
+          }}
+          onFetch={async () => {
+            await fetch();
+          }}
+          onPush={async () => {
+            await push();
+          }}
+          onPull={async () => {
+            await pull();
+          }}
+        />
+
+        <StashPanel
+          stashes={stashes}
+          onPush={async (message) => {
+            await stash('Push', message);
+          }}
+          onPop={async (index) => {
+            await stash('Pop', undefined, index);
+          }}
+          onDrop={async (index) => {
+            await stash('Drop', undefined, index);
+          }}
+        />
+
+        <LogGraph
+          commits={commits}
+          onCherryPick={async (oid) => {
+            await cherryPick(oid);
+          }}
+        />
       </div>
-
-      <CommitForm
-        onCommit={async (message, amend) => {
-          await commit(message, amend);
-        }}
-        onFetch={async () => {
-          await fetch();
-        }}
-        onPush={async () => {
-          await push();
-        }}
-        onPull={async () => {
-          await pull();
-        }}
-      />
-
-      <StashPanel
-        stashes={stashes}
-        onPush={async (message) => {
-          await stash('Push', message);
-        }}
-        onPop={async (index) => {
-          await stash('Pop', undefined, index);
-        }}
-        onDrop={async (index) => {
-          await stash('Drop', undefined, index);
-        }}
-      />
-
-      <LogGraph
-        commits={commits}
-        onCherryPick={async (oid) => {
-          await cherryPick(oid);
-        }}
-      />
     </section>
   );
 }

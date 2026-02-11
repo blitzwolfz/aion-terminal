@@ -37,8 +37,8 @@ export function SettingsModal({ open, onClose }: Props) {
         </div>
       }
     >
-      {loading ? <p className="mb-2 text-xs text-text-secondary">Loading settings…</p> : null}
-      {error ? <p className="mb-2 text-xs text-[#ef4444]">{error}</p> : null}
+      {loading ? <p className="mb-2 text-xs text-[var(--text-secondary)]">Loading settings...</p> : null}
+      {error ? <p className="mb-2 text-xs font-medium text-[var(--status-error)]">{error}</p> : null}
       <ShellConfig value={draft} onChange={setDraft} />
     </Modal>
   );

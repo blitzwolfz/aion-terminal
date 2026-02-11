@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -13,22 +13,25 @@ body,
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  font-family: 'Sora', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 13px;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.18), transparent 34%),
-    radial-gradient(circle at 88% 10%, rgba(14, 165, 233, 0.14), transparent 30%),
-    linear-gradient(145deg, #06080f 0%, #090f1d 45%, #0f1727 100%);
-  color: #e7eefc;
+  background: #F5F0E8;
+  color: #1A1A1A;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Syne', sans-serif;
 }
 
 code,
@@ -38,34 +41,43 @@ pre,
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(125, 156, 199, 0.38);
+  background: #C4BEB2;
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(159, 184, 222, 0.7);
+  background: #8C8C8C;
   background-clip: content-box;
 }
 
-.fade-up {
-  animation: fade-up 240ms ease-out;
+select {
+  color: var(--text-primary);
 }
 
-@keyframes fade-up {
+select option {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.bauhaus-fade-in {
+  animation: bauhaus-fade-in 300ms ease-out;
+}
+
+@keyframes bauhaus-fade-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   gitBranchDelete,
   gitBranches,
@@ -31,7 +31,14 @@ export function useGit(repoPath: string) {
   const setStashes = useGitStore((state) => state.setStashes);
   const setLoading = useGitStore((state) => state.setLoading);
   const setError = useGitStore((state) => state.setError);
-  const selectedFile = useGitStore((state) => state.selectedFile);
+  const selectedFileRef = useRef(useGitStore.getState().selectedFile);
+
+  // Keep ref in sync without causing effect re-runs
+  useEffect(() => {
+    return useGitStore.subscribe((state) => {
+      selectedFileRef.current = state.selectedFile;
+    });
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -47,41 +54,58 @@ export function useGit(repoPath: string) {
       setCommits(commits);
       setBranches(branches);
       setStashes(stashResult.stashes);
-      if (selectedFile) {
-        const nextDiff = await gitDiff(repoPath, selectedFile, false);
-        setDiff(nextDiff);
+      if (selectedFileRef.current) {
+        try {
+          const nextDiff = await gitDiff(repoPath, selectedFileRef.current, false);
+          setDiff(nextDiff);
+        } catch {
+          setDiff(null);
+        }
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
-  }, [repoPath, selectedFile, setBranches, setCommits, setDiff, setError, setLoading, setStashes, setStatuses]);
+  }, [repoPath, setBranches, setCommits, setDiff, setError, setLoading, setStashes, setStatuses]);
 
+  // Setup git watcher and initial refresh
   useEffect(() => {
-    void refresh();
-
+    let mounted = true;
     let unlisten: (() => void) | undefined;
     let startedPath: string | undefined;
+    let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    void refresh();
 
     void gitWatchStart(repoPath)
       .then((root) => {
-        startedPath = root;
+        if (mounted) {
+          startedPath = root;
+        } else {
+          void gitWatchStop(root);
+        }
       })
-      .catch(() => {
-        // ignore watcher startup errors for non-git paths
-      });
+      .catch(() => {});
 
-    void onGitChanged(() => {
-      void refresh();
+    onGitChanged(() => {
+      if (!mounted) return;
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        if (mounted) void refresh();
+      }, 200);
     }).then((fn) => {
-      unlisten = fn;
+      if (mounted) {
+        unlisten = fn;
+      } else {
+        fn();
+      }
     });
 
     return () => {
-      if (unlisten) {
-        unlisten();
-      }
+      mounted = false;
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+      unlisten?.();
       if (startedPath) {
         void gitWatchStop(startedPath);
       }
@@ -102,115 +126,176 @@ export function useGit(repoPath: string) {
 
   const stage = useCallback(
     async (files: string[]) => {
-      await gitStage(repoPath, files);
-      await refresh();
+      try {
+        await gitStage(repoPath, files);
+        await refresh();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const unstage = useCallback(
     async (files: string[]) => {
-      await gitUnstage(repoPath, files);
-      await refresh();
+      try {
+        await gitUnstage(repoPath, files);
+        await refresh();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const commit = useCallback(
     async (message: string, amend = false) => {
-      const result = await gitCommit(repoPath, message, amend);
-      await refresh();
-      return result;
+      try {
+        const result = await gitCommit(repoPath, message, amend);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const checkout = useCallback(
     async (branch: string, create = false) => {
-      await gitCheckout(repoPath, branch, create);
-      await refresh();
+      try {
+        await gitCheckout(repoPath, branch, create);
+        await refresh();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const deleteBranch = useCallback(
     async (branch: string, force = false) => {
-      await gitBranchDelete(repoPath, branch, force);
-      await refresh();
+      try {
+        await gitBranchDelete(repoPath, branch, force);
+        await refresh();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
-  const fetch = useCallback(
+  const fetchRemote = useCallback(
     async (remote?: string) => {
-      const result = await gitFetch(repoPath, remote);
-      await refresh();
-      return result;
+      try {
+        const result = await gitFetch(repoPath, remote);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
-  const push = useCallback(
+  const pushRemote = useCallback(
     async (remote?: string, branch?: string, force = false) => {
-      const result = await gitPush(repoPath, remote, branch, force);
-      await refresh();
-      return result;
+      try {
+        const result = await gitPush(repoPath, remote, branch, force);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
-  const pull = useCallback(
+  const pullRemote = useCallback(
     async (remote?: string, branch?: string) => {
-      const result = await gitPull(repoPath, remote, branch);
-      await refresh();
-      return result;
+      try {
+        const result = await gitPull(repoPath, remote, branch);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const merge = useCallback(
     async (branch: string, noFf = false) => {
-      const result = await gitMerge(repoPath, branch, noFf);
-      await refresh();
-      return result;
+      try {
+        const result = await gitMerge(repoPath, branch, noFf);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const cherryPick = useCallback(
     async (commitOid: string) => {
-      const result = await gitCherryPick(repoPath, commitOid);
-      await refresh();
-      return result;
+      try {
+        const result = await gitCherryPick(repoPath, commitOid);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const createTag = useCallback(
     async (tag: string, target?: string) => {
-      const result = await gitTagCreate(repoPath, tag, target);
-      await refresh();
-      return result;
+      try {
+        const result = await gitTagCreate(repoPath, tag, target);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   const deleteTag = useCallback(
     async (tag: string) => {
-      const result = await gitTagDelete(repoPath, tag);
-      await refresh();
-      return result;
+      try {
+        const result = await gitTagDelete(repoPath, tag);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
-  const stash = useCallback(
+  const stashOp = useCallback(
     async (action: 'Push' | 'Pop' | 'Drop' | 'List', message?: string, index?: number) => {
-      const result = await gitStash(repoPath, action, message, index);
-      await refresh();
-      return result;
+      try {
+        const result = await gitStash(repoPath, action, message, index);
+        await refresh();
+        return result;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     },
-    [repoPath, refresh]
+    [repoPath, refresh, setError]
   );
 
   return {
@@ -221,13 +306,13 @@ export function useGit(repoPath: string) {
     commit,
     checkout,
     deleteBranch,
-    fetch,
-    push,
-    pull,
+    fetch: fetchRemote,
+    push: pushRemote,
+    pull: pullRemote,
     merge,
     cherryPick,
     createTag,
     deleteTag,
-    stash
+    stash: stashOp
   };
 }

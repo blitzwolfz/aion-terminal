@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { createFitAddon } from './FitAddon';
@@ -16,21 +16,50 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<ReturnType<typeof createFitAddon> | null>(null);
   const outputLenRef = useRef(0);
-  const aliveRef = useRef(false);
   const sessionIdRef = useRef<string | null>(sessionId);
   const onInputRef = useRef(onInput);
   const onResizeRef = useRef(onResize);
+  const fitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastColsRef = useRef(0);
+  const lastRowsRef = useRef(0);
+
+  onInputRef.current = onInput;
+  onResizeRef.current = onResize;
+
+  const debouncedFit = useCallback(() => {
+    if (fitTimeoutRef.current) {
+      clearTimeout(fitTimeoutRef.current);
+    }
+    fitTimeoutRef.current = setTimeout(() => {
+      const terminal = terminalRef.current;
+      const fitAddon = fitRef.current;
+      const container = containerRef.current;
+      if (!terminal || !fitAddon || !container) return;
+      if (container.clientWidth < 8 || container.clientHeight < 8) return;
+
+      try {
+        fitAddon.fit();
+
+        if (terminal.cols !== lastColsRef.current || terminal.rows !== lastRowsRef.current) {
+          lastColsRef.current = terminal.cols;
+          lastRowsRef.current = terminal.rows;
+          if (sessionIdRef.current && onResizeRef.current) {
+            onResizeRef.current(terminal.cols, terminal.rows);
+          }
+        }
+      } catch {
+        // Ignore transient renderer measurement races
+      }
+    }, 50);
+  }, []);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
-    onInputRef.current = onInput;
-    onResizeRef.current = onResize;
-  }, [onInput, onResize, sessionId]);
+  }, [sessionId]);
 
   useEffect(() => {
-    if (!containerRef.current || terminalRef.current) {
-      return;
-    }
+    const container = containerRef.current;
+    if (!container || terminalRef.current) return;
 
     const terminal = new Terminal({
       ...TERMINAL_OPTIONS,
@@ -38,45 +67,35 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     });
     const fitAddon = createFitAddon();
     terminal.loadAddon(fitAddon);
-    aliveRef.current = true;
 
-    // Prefer WebGL renderer for high-throughput terminal output.
-    // Loaded lazily to avoid hard runtime failures on unsupported WebViews.
     void import('@xterm/addon-webgl')
       .then(({ WebglAddon }) => {
+        if (!terminalRef.current) return;
         const webglAddon = new WebglAddon();
         terminal.loadAddon(webglAddon);
         webglAddon.onContextLoss(() => {
-          // xterm falls back to software rendering when WebGL context is lost.
+          webglAddon.dispose();
         });
       })
-      .catch(() => {
-        // Keep software renderer fallback when WebGL is unavailable.
-      });
+      .catch(() => {});
 
-    terminal.open(containerRef.current);
-    const safeFit = () => {
-      if (!aliveRef.current || terminalRef.current !== terminal) {
-        return;
-      }
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-      if (container.clientWidth < 8 || container.clientHeight < 8) {
-        return;
-      }
-      try {
-        fitAddon.fit();
-      } catch {
-        // Ignore transient renderer/measurement races during first paint.
-      }
-    };
+    terminal.open(container);
 
     requestAnimationFrame(() => {
-      safeFit();
-      // Run once more to handle initial layout settling.
-      requestAnimationFrame(safeFit);
+      if (!terminalRef.current) return;
+      try {
+        fitAddon.fit();
+        lastColsRef.current = terminal.cols;
+        lastRowsRef.current = terminal.rows;
+      } catch {}
+      requestAnimationFrame(() => {
+        if (!terminalRef.current) return;
+        try {
+          fitAddon.fit();
+          lastColsRef.current = terminal.cols;
+          lastRowsRef.current = terminal.rows;
+        } catch {}
+      });
     });
 
     terminal.onData((data) => {
@@ -86,60 +105,69 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     });
 
     const resizeObserver = new ResizeObserver(() => {
-      safeFit();
-      const onResizeHandler = onResizeRef.current;
-      if (sessionIdRef.current && onResizeHandler) {
-        onResizeHandler(terminal.cols, terminal.rows);
-      }
+      debouncedFit();
     });
-
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(container);
 
     terminalRef.current = terminal;
     fitRef.current = fitAddon;
 
     return () => {
-      aliveRef.current = false;
+      if (fitTimeoutRef.current) {
+        clearTimeout(fitTimeoutRef.current);
+      }
       resizeObserver.disconnect();
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;
     };
-  }, []);
+  }, [debouncedFit]);
 
+  // On session switch: clear and replay stored output
   useEffect(() => {
     const terminal = terminalRef.current;
-    if (!terminal) {
-      return;
-    }
+    if (!terminal) return;
 
     terminal.clear();
+    terminal.reset();
     outputLenRef.current = 0;
+
     if (output.length > 0) {
       terminal.write(output.join(''));
       outputLenRef.current = output.length;
     }
-  }, [sessionId]);
 
+    requestAnimationFrame(() => {
+      debouncedFit();
+    });
+  }, [sessionId, debouncedFit]);
+
+  // Incremental output writes
   useEffect(() => {
     const terminal = terminalRef.current;
-    if (!terminal) {
-      return;
-    }
+    if (!terminal) return;
 
     if (output.length < outputLenRef.current) {
       terminal.clear();
+      terminal.reset();
       terminal.write(output.join(''));
       outputLenRef.current = output.length;
       return;
     }
 
-    const nextChunks = output.slice(outputLenRef.current);
-    if (nextChunks.length > 0) {
-      terminal.write(nextChunks.join(''));
+    const newStart = outputLenRef.current;
+    if (output.length > newStart) {
+      const newChunks = output.slice(newStart);
+      terminal.write(newChunks.join(''));
       outputLenRef.current = output.length;
     }
   }, [output]);
 
-  return <div ref={containerRef} className="h-full w-full bg-surface-primary" />;
+  return (
+    <div
+      ref={containerRef}
+      className="h-full w-full"
+      style={{ background: TERMINAL_THEME.background }}
+    />
+  );
 }

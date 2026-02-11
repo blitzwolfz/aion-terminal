@@ -1,30 +1,53 @@
 :root {
-  --surface-primary: #0b1220;
-  --surface-secondary: #121c2f;
-  --surface-tertiary: #1a2740;
-  --surface-elevated: #223555;
-  --border-default: #2b3e5c;
-  --text-primary: #e7eefc;
-  --text-secondary: #9fb2d1;
-  --text-tertiary: #7287a8;
-  --accent-primary: #13c6a6;
-  --accent-hover: #0ea58a;
-  --accent-muted: #113a3a;
-  --accent-surface: #d7fff7;
-  --status-success: #22c55e;
-  --status-error: #ef4444;
-  --status-warning: #f59e0b;
-  --status-info: #0ea5e9;
+  /* Bauhaus Cream / Emerald Palette */
+  --surface-primary: #F5F0E8;
+  --surface-secondary: #FAFAF7;
+  --surface-tertiary: #EDE8DE;
+  --surface-elevated: #FFFFFF;
+  --surface-inset: #E4DED2;
+
+  --border-default: #C4BEB2;
+  --border-strong: #1A1A1A;
+  --border-accent: #059669;
+
+  --text-primary: #1A1A1A;
+  --text-secondary: #5C5C5C;
+  --text-tertiary: #8C8C8C;
+
+  --accent-primary: #059669;
+  --accent-deep: #065F46;
+  --accent-bright: #10B981;
+  --accent-hover: #047857;
+  --accent-muted: #D1FAE5;
+  --accent-surface: #ECFDF5;
+
+  --status-success: #059669;
+  --status-error: #DC2626;
+  --status-warning: #D97706;
+  --status-info: #2563EB;
+
+  --terminal-bg: #1A1A1A;
+  --terminal-fg: #F5F0E8;
+  --terminal-cursor: #059669;
+  --terminal-selection: #065F46;
 }
 
 .bg-surface-primary { background-color: var(--surface-primary); }
 .bg-surface-secondary { background-color: var(--surface-secondary); }
 .bg-surface-tertiary { background-color: var(--surface-tertiary); }
 .bg-surface-elevated { background-color: var(--surface-elevated); }
+.bg-surface-inset { background-color: var(--surface-inset); }
+
 .text-text-primary { color: var(--text-primary); }
 .text-text-secondary { color: var(--text-secondary); }
 .text-text-tertiary { color: var(--text-tertiary); }
+
 .border-default { border-color: var(--border-default); }
+.border-strong { border-color: var(--border-strong); }
+.border-accent { border-color: var(--border-accent); }
+
 .bg-accent-primary { background-color: var(--accent-primary); }
 .bg-accent-muted { background-color: var(--accent-muted); }
+.bg-accent-surface { background-color: var(--accent-surface); }
 .text-accent-primary { color: var(--accent-primary); }
+.text-accent-deep { color: var(--accent-deep); }

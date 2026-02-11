@@ -32,21 +32,21 @@ export function SessionSidebar({
   );
 
   return (
-    <aside className="flex h-full w-full flex-col bg-transparent">
-      <div className="border-b border-default px-3 py-3">
+    <aside className="flex h-full w-full flex-col bg-[var(--surface-secondary)]">
+      <div className="border-b-2 border-[var(--border-strong)] px-3 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold tracking-[0.02em]">Sessions</h2>
-          <span className="rounded-md border border-default bg-surface-tertiary px-2 py-1 text-[10px] text-text-secondary">
-            {runningCount}/{sessions.length} active
+          <h2 className="font-display text-sm font-bold uppercase tracking-widest">Sessions</h2>
+          <span className="border-2 border-[var(--border-default)] bg-[var(--surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+            {runningCount}/{sessions.length}
           </span>
         </div>
         <NewSessionButton onCreate={onCreate} />
       </div>
 
-      <div className="flex-1 space-y-2 overflow-auto p-2">
+      <div className="flex-1 space-y-1 overflow-auto p-2">
         {sessions.length === 0 ? (
-          <div className="rounded-lg border border-default bg-surface-tertiary px-3 py-4 text-xs text-text-secondary">
-            No sessions yet. Start one to run your agent workflow.
+          <div className="border-2 border-dashed border-[var(--border-default)] p-4 text-center text-xs text-[var(--text-secondary)]">
+            No sessions yet.
           </div>
         ) : null}
 

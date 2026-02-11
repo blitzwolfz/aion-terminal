@@ -5,8 +5,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['DM Sans', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace']
+        sans: ['Outfit', 'sans-serif'],
+        display: ['Syne', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'monospace']
       }
     }
   },

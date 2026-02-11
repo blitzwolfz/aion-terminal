@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ptyKill, ptyResize, ptySpawn, ptyWrite, onPtyData, onPtyExit } from '@/lib/ipc';
 import { useSessionStore } from '@/stores/sessionStore';
 
@@ -9,15 +9,23 @@ export function usePty() {
   const appendOutput = useSessionStore((state) => state.appendOutput);
   const setStatus = useSessionStore((state) => state.setStatus);
   const setAgent = useSessionStore((state) => state.setAgent);
+  const runningSessionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    let mounted = true;
     let unlistenData: (() => void) | undefined;
     let unlistenExit: (() => void) | undefined;
 
-    void onPtyData((payload) => {
+    onPtyData((payload) => {
+      if (!mounted) return;
+
       const data = decoder.decode(Uint8Array.from(payload.data));
       appendOutput(payload.session_id, data);
-      setStatus(payload.session_id, 'running');
+
+      if (!runningSessionsRef.current.has(payload.session_id)) {
+        runningSessionsRef.current.add(payload.session_id);
+        setStatus(payload.session_id, 'running');
+      }
 
       const normalized = data.toLowerCase();
       if (normalized.includes('claude code') || normalized.includes('/cost')) {
@@ -26,22 +34,29 @@ export function usePty() {
         setAgent(payload.session_id, 'copilot-cli');
       }
     }).then((fn) => {
-      unlistenData = fn;
+      if (mounted) {
+        unlistenData = fn;
+      } else {
+        fn();
+      }
     });
 
-    void onPtyExit((payload) => {
+    onPtyExit((payload) => {
+      if (!mounted) return;
+      runningSessionsRef.current.delete(payload.session_id);
       setStatus(payload.session_id, 'terminated');
     }).then((fn) => {
-      unlistenExit = fn;
+      if (mounted) {
+        unlistenExit = fn;
+      } else {
+        fn();
+      }
     });
 
     return () => {
-      if (unlistenData) {
-        unlistenData();
-      }
-      if (unlistenExit) {
-        unlistenExit();
-      }
+      mounted = false;
+      unlistenData?.();
+      unlistenExit?.();
     };
   }, [appendOutput, setAgent, setStatus]);
 

@@ -10,12 +10,12 @@ export function ShellConfig({ value, onChange }: Props) {
   return (
     <div className="space-y-4">
       <section>
-        <h4 className="mb-2 text-[10px] uppercase tracking-[0.04em] text-text-secondary">Defaults</h4>
+        <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Defaults</h4>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="space-y-1 text-xs">
-            <span className="text-text-secondary">macOS default shell</span>
+            <span className="font-semibold uppercase tracking-wider text-[var(--text-secondary)]">macOS</span>
             <select
-              className="h-8 w-full border border-default bg-surface-secondary px-2"
+              className="h-8 w-full border-2 border-[var(--border-default)] bg-[var(--surface-elevated)] px-2 text-xs"
               value={value.defaultShell.darwin}
               onChange={(event) =>
                 onChange({
@@ -31,9 +31,9 @@ export function ShellConfig({ value, onChange }: Props) {
             </select>
           </label>
           <label className="space-y-1 text-xs">
-            <span className="text-text-secondary">Windows default shell</span>
+            <span className="font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Windows</span>
             <select
-              className="h-8 w-full border border-default bg-surface-secondary px-2"
+              className="h-8 w-full border-2 border-[var(--border-default)] bg-[var(--surface-elevated)] px-2 text-xs"
               value={value.defaultShell.win32}
               onChange={(event) =>
                 onChange({
@@ -52,10 +52,10 @@ export function ShellConfig({ value, onChange }: Props) {
       </section>
 
       <section>
-        <h4 className="mb-2 text-[10px] uppercase tracking-[0.04em] text-text-secondary">Custom Paths</h4>
+        <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Custom Paths</h4>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="space-y-1 text-xs">
-            <span className="text-text-secondary">darwin path</span>
+            <span className="font-semibold uppercase tracking-wider text-[var(--text-secondary)]">darwin path</span>
             <Input
               value={value.customPaths.darwin ?? ''}
               onChange={(event) =>
@@ -68,7 +68,7 @@ export function ShellConfig({ value, onChange }: Props) {
             />
           </label>
           <label className="space-y-1 text-xs">
-            <span className="text-text-secondary">win32 path</span>
+            <span className="font-semibold uppercase tracking-wider text-[var(--text-secondary)]">win32 path</span>
             <Input
               value={value.customPaths.win32 ?? ''}
               onChange={(event) =>
@@ -77,27 +77,29 @@ export function ShellConfig({ value, onChange }: Props) {
                   customPaths: { ...value.customPaths, win32: event.target.value || undefined }
                 })
               }
-              placeholder="C:\\msys64\\usr\\bin\\bash.exe"
+              placeholder="C:\msys64\usr\bin\bash.exe"
             />
           </label>
         </div>
       </section>
 
       <section className="space-y-2">
-        <h4 className="text-[10px] uppercase tracking-[0.04em] text-text-secondary">Spawn Behavior</h4>
-        <label className="flex items-center gap-2 text-xs">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Spawn Behavior</h4>
+        <label className="flex items-center gap-2 text-xs font-medium">
           <input
             type="checkbox"
             checked={value.loginShell}
             onChange={(event) => onChange({ ...value, loginShell: event.target.checked })}
+            className="accent-[var(--accent-primary)]"
           />
           Login shell
         </label>
-        <label className="flex items-center gap-2 text-xs">
+        <label className="flex items-center gap-2 text-xs font-medium">
           <input
             type="checkbox"
             checked={value.profileLoad}
             onChange={(event) => onChange({ ...value, profileLoad: event.target.checked })}
+            className="accent-[var(--accent-primary)]"
           />
           Load shell profile
         </label>

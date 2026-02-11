@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { APP_NAME, DEFAULT_CWD } from '@/lib/constants';
 import { usePty } from '@/hooks/usePty';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -24,8 +24,8 @@ export default function App() {
   const pty = usePty();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rightView, setRightView] = useState<'git' | 'dashboard'>('git');
-  const [sidebarWidth, setSidebarWidth] = useState(280);
-  const [rightPanelWidth, setRightPanelWidth] = useState(520);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [rightPanelWidth, setRightPanelWidth] = useState(480);
   const dragTargetRef = useRef<'left' | 'right' | null>(null);
 
   const sessions = useSessionStore((state) => state.sessions);
@@ -53,7 +53,7 @@ export default function App() {
 
   const terminatedCount = sessions.length - runningCount;
 
-  async function spawnSession(session: Session, overrideShell?: string) {
+  const spawnSession = useCallback(async (session: Session, overrideShell?: string) => {
     try {
       await pty.spawn({
         sessionId: session.id,
@@ -65,43 +65,37 @@ export default function App() {
       });
     } catch (error) {
       setStatus(session.id, 'terminated');
-      console.error(error);
+      console.error('Failed to spawn session:', error);
     }
-  }
+  }, [pty, shellConfig.defaultEnv, setStatus]);
 
+  // Ensure initial session on first mount
+  const initializedRef = useRef(false);
   useEffect(() => {
-    async function ensureInitialSession() {
-      if (sessions.length > 0) {
-        return;
-      }
+    if (initializedRef.current || sessions.length > 0) return;
+    initializedRef.current = true;
 
-      const fallbackShell = inferShell();
-      const preferredShell = navigator.userAgent.toLowerCase().includes('windows')
-        ? shellConfig.defaultShell.win32
-        : shellConfig.defaultShell.darwin;
-      const shell = preferredShell === 'custom' ? fallbackShell : preferredShell;
+    const fallbackShell = inferShell();
+    const preferredShell = navigator.userAgent.toLowerCase().includes('windows')
+      ? shellConfig.defaultShell.win32
+      : shellConfig.defaultShell.darwin;
+    const shell = preferredShell === 'custom' ? fallbackShell : preferredShell;
 
-      const session = createSession(shell, DEFAULT_CWD);
-      await spawnSession(session, shell);
-    }
+    const session = createSession(shell, DEFAULT_CWD);
+    void spawnSession(session, shell);
+  }, [createSession, sessions.length, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32, spawnSession]);
 
-    void ensureInitialSession();
-  }, [createSession, sessions.length, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32]);
-
+  // Resize handlers
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
-      if (!dragTargetRef.current) {
-        return;
-      }
+      if (!dragTargetRef.current) return;
 
       if (dragTargetRef.current === 'left') {
-        const next = clamp(event.clientX - 18, 220, 420);
-        setSidebarWidth(next);
+        setSidebarWidth(clamp(event.clientX, 200, 400));
         return;
       }
 
-      const next = clamp(window.innerWidth - event.clientX - 18, 360, 760);
-      setRightPanelWidth(next);
+      setRightPanelWidth(clamp(window.innerWidth - event.clientX, 320, 700));
     };
 
     const onMouseUp = () => {
@@ -142,9 +136,7 @@ export default function App() {
 
   async function handleDuplicateSession(sessionId: string) {
     const duplicated = duplicateSession(sessionId);
-    if (!duplicated) {
-      return;
-    }
+    if (!duplicated) return;
     setActiveSession(duplicated.id);
     await spawnSession(duplicated);
   }
@@ -153,7 +145,7 @@ export default function App() {
     try {
       await pty.kill(sessionId);
     } catch (error) {
-      console.error(error);
+      console.error('Failed to kill session:', error);
     } finally {
       setStatus(sessionId, 'terminated');
       if (activeSessionId === sessionId) {
@@ -169,12 +161,11 @@ export default function App() {
     removeSession(sessionId);
   }
 
+  // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isMeta = event.metaKey || event.ctrlKey;
-      if (!isMeta) {
-        return;
-      }
+      if (!isMeta) return;
 
       if (event.key.toLowerCase() === 't') {
         event.preventDefault();
@@ -192,12 +183,9 @@ export default function App() {
 
       if (event.key === 'Tab') {
         const candidates = sessions.filter((session) => session.status !== 'terminated');
-        if (candidates.length === 0) {
-          return;
-        }
+        if (candidates.length === 0) return;
 
         event.preventDefault();
-
         const currentIndex = candidates.findIndex((session) => session.id === activeSessionId);
         const direction = event.shiftKey ? -1 : 1;
         const nextIndex = currentIndex < 0
@@ -216,18 +204,19 @@ export default function App() {
   const terminalOutput = activeSession ? output[activeSession.id] ?? [] : [];
 
   return (
-    <main className="h-screen w-screen p-3 text-text-primary">
-      <div className="fade-up flex h-full flex-col overflow-hidden rounded-2xl border border-default bg-surface-primary shadow-[0_18px_80px_rgba(1,5,18,0.65)] backdrop-blur-sm">
-        <header className="flex h-14 items-center justify-between border-b border-default bg-surface-secondary px-4">
+    <main className="h-screen w-screen bg-[var(--surface-primary)] text-[var(--text-primary)]">
+      <div className="bauhaus-fade-in flex h-full flex-col overflow-hidden">
+        {/* Top bar */}
+        <header className="flex h-12 items-center justify-between border-b-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl border border-default bg-surface-elevated text-sm font-bold text-accent-primary">
-              AI
+            <div className="flex h-8 w-8 items-center justify-center border-2 border-[var(--border-strong)] bg-[var(--accent-primary)]">
+              <span className="font-display text-[11px] font-extrabold uppercase tracking-widest text-white">A</span>
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-[14px] font-semibold tracking-[0.02em]">{APP_NAME} Command Center</h1>
-              <p className="truncate text-[11px] text-text-secondary">
+              <h1 className="font-display truncate text-sm font-bold uppercase tracking-widest">{APP_NAME}</h1>
+              <p className="truncate text-[10px] text-[var(--text-secondary)]">
                 {activeSession
-                  ? `${activeSession.label} (${activeSession.shell}) - ${activeSession.cwd}`
+                  ? `${activeSession.label} \u2014 ${activeSession.shell} \u2014 ${activeSession.cwd}`
                   : 'No active session'}
               </p>
             </div>
@@ -235,33 +224,43 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <button
-              className={`h-8 rounded-md border px-3 text-[11px] font-semibold ${rightView === 'git' ? 'border-[#2be3c2] bg-[#2be3c2]/15 text-[#a6fff0]' : 'border-default text-text-secondary hover:bg-surface-tertiary'}`}
+              className={`h-7 border-2 px-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                rightView === 'git'
+                  ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-deep)]'
+                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-tertiary)]'
+              }`}
               onClick={() => setRightView('git')}
             >
-              Git Ops
+              Git
             </button>
             <button
-              className={`h-8 rounded-md border px-3 text-[11px] font-semibold ${rightView === 'dashboard' ? 'border-[#2be3c2] bg-[#2be3c2]/15 text-[#a6fff0]' : 'border-default text-text-secondary hover:bg-surface-tertiary'}`}
+              className={`h-7 border-2 px-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                rightView === 'dashboard'
+                  ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-deep)]'
+                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-tertiary)]'
+              }`}
               onClick={() => setRightView('dashboard')}
             >
               Usage
             </button>
-            <div className="hidden items-center gap-2 rounded-md border border-default bg-surface-tertiary px-2 py-1 text-[10px] text-text-secondary xl:flex">
+            <div className="hidden items-center gap-1 border-2 border-[var(--border-default)] bg-[var(--surface-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] xl:flex">
               <span>{runningCount} live</span>
-              <span className="text-text-tertiary">|</span>
+              <span className="text-[var(--text-tertiary)]">/</span>
               <span>{terminatedCount} closed</span>
             </div>
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 p-2">
+        {/* Main content area */}
+        <div className="min-h-0 flex-1">
           <div
             className="grid h-full min-h-0"
             style={{
-              gridTemplateColumns: `${sidebarWidth}px 8px minmax(520px,1fr) 8px ${rightPanelWidth}px`
+              gridTemplateColumns: `${sidebarWidth}px 6px minmax(400px,1fr) 6px ${rightPanelWidth}px`
             }}
           >
-            <section className="min-h-0 overflow-hidden rounded-xl border border-default bg-surface-secondary">
+            {/* Sidebar */}
+            <section className="min-h-0 overflow-hidden border-r-2 border-[var(--border-strong)]">
               <SessionSidebar
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -281,16 +280,18 @@ export default function App() {
               />
             </section>
 
+            {/* Left resize handle */}
             <div
               className="group flex cursor-col-resize items-center justify-center"
               onMouseDown={beginResize('left')}
               role="separator"
               aria-label="Resize sidebar"
             >
-              <div className="h-full w-[2px] rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[#2be3c2]" />
+              <div className="h-full w-[2px] bg-[var(--border-default)] transition-colors group-hover:bg-[var(--accent-primary)]" />
             </div>
 
-            <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-default bg-surface-secondary">
+            {/* Terminal */}
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
               <TerminalToolbar
                 session={activeSession}
                 onNewSession={() => {
@@ -303,7 +304,7 @@ export default function App() {
                 }}
                 onOpenSettings={() => setSettingsOpen(true)}
               />
-              <div className="min-h-0 flex-1 bg-[#0a111e]">
+              <div className="min-h-0 flex-1">
                 <TerminalPane
                   sessionId={activeSession?.id ?? null}
                   output={terminalOutput}
@@ -321,16 +322,18 @@ export default function App() {
               </div>
             </section>
 
+            {/* Right resize handle */}
             <div
               className="group flex cursor-col-resize items-center justify-center"
               onMouseDown={beginResize('right')}
               role="separator"
               aria-label="Resize details panel"
             >
-              <div className="h-full w-[2px] rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[#2be3c2]" />
+              <div className="h-full w-[2px] bg-[var(--border-default)] transition-colors group-hover:bg-[var(--accent-primary)]" />
             </div>
 
-            <section className="min-h-0 overflow-hidden rounded-xl border border-default bg-surface-secondary">
+            {/* Right panel */}
+            <section className="min-h-0 overflow-hidden border-l-2 border-[var(--border-strong)]">
               {rightView === 'git' ? <GitPanel repoPath={repoPath} /> : <UsageDashboard />}
             </section>
           </div>
