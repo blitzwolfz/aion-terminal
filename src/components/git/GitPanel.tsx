@@ -46,13 +46,20 @@ export function GitPanel({ repoPath }: Props) {
   const changedCount = useMemo(() => statuses.length, [statuses]);
 
   return (
-    <section className="flex h-full flex-col bg-surface-secondary">
-      <header className="flex h-10 items-center justify-between border-b border-default px-3">
-        <h3 className="text-xs uppercase tracking-[0.04em]">Git Sidecar</h3>
-        <span className="text-[10px] text-text-secondary">{changedCount} changed files</span>
+    <section className="flex h-full flex-col bg-transparent">
+      <header className="flex h-12 items-center justify-between border-b border-default bg-surface-primary px-3">
+        <div>
+          <h3 className="text-sm font-semibold tracking-[0.02em]">Git Sidecar</h3>
+          <p className="text-[10px] text-text-secondary">{repoPath}</p>
+        </div>
+        <span className="rounded-md border border-default bg-surface-tertiary px-2 py-1 text-[10px] text-text-secondary">
+          {changedCount} changed
+        </span>
       </header>
-      {error ? <div className="border-b border-default px-3 py-2 text-xs text-[#ef4444]">{error}</div> : null}
-      {loading ? <div className="border-b border-default px-3 py-2 text-xs text-text-secondary">Refreshing…</div> : null}
+
+      {error ? <div className="border-b border-default px-3 py-2 text-xs text-[#fda4af]">{error}</div> : null}
+      {loading ? <div className="border-b border-default px-3 py-2 text-xs text-text-secondary">Refreshing...</div> : null}
+
       <BranchSelector
         branches={branches}
         onCheckout={checkout}
@@ -61,8 +68,9 @@ export function GitPanel({ repoPath }: Props) {
           await merge(branch, false);
         }}
       />
+
       <div className="border-b border-default p-2">
-        <p className="mb-1 text-[10px] uppercase tracking-[0.04em] text-text-secondary">Tags</p>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-text-secondary">Tags</p>
         <div className="flex gap-2">
           <Input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder="v1.0.0" />
           <Button
@@ -90,7 +98,8 @@ export function GitPanel({ repoPath }: Props) {
           </Button>
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr]">
+
+      <div className="grid min-h-0 flex-1 grid-cols-[270px_1fr]">
         <FileTree
           files={statuses}
           selectedFile={selectedFile}
@@ -103,6 +112,7 @@ export function GitPanel({ repoPath }: Props) {
         />
         <DiffViewer diff={diff} />
       </div>
+
       <CommitForm
         onCommit={async (message, amend) => {
           await commit(message, amend);
@@ -117,6 +127,7 @@ export function GitPanel({ repoPath }: Props) {
           await pull();
         }}
       />
+
       <StashPanel
         stashes={stashes}
         onPush={async (message) => {
@@ -129,6 +140,7 @@ export function GitPanel({ repoPath }: Props) {
           await stash('Drop', undefined, index);
         }}
       />
+
       <LogGraph
         commits={commits}
         onCherryPick={async (oid) => {

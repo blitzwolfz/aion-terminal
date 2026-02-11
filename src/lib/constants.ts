@@ -3,16 +3,16 @@ import type { ShellConfig } from './types';
 export const APP_NAME = 'Aion';
 
 export const TERMINAL_THEME = {
-  background: '#111827',
-  foreground: '#f3f4f6',
-  cursor: '#10b981',
-  selectionBackground: '#047857'
+  background: '#0a111e',
+  foreground: '#e7eefc',
+  cursor: '#13c6a6',
+  selectionBackground: '#1f4d6e'
 };
 
 export const TERMINAL_OPTIONS = {
   cursorBlink: true,
   cursorStyle: 'block' as const,
-  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+  fontFamily: '"IBM Plex Mono", "JetBrains Mono", monospace',
   fontSize: 13,
   scrollback: 10000
 };

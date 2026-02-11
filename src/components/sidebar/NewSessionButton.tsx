@@ -6,7 +6,7 @@ interface Props {
 
 export function NewSessionButton({ onCreate }: Props) {
   return (
-    <Button variant="primary" className="w-full" onClick={onCreate}>
+    <Button variant="primary" className="w-full justify-center" onClick={onCreate}>
       + New Session
     </Button>
   );

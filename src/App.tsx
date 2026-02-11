@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { APP_NAME, DEFAULT_CWD } from '@/lib/constants';
 import { usePty } from '@/hooks/usePty';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -16,10 +16,18 @@ function inferShell(): ShellType {
   return isWindows ? 'pwsh' : 'zsh';
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export default function App() {
   const pty = usePty();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rightView, setRightView] = useState<'git' | 'dashboard'>('git');
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(520);
+  const dragTargetRef = useRef<'left' | 'right' | null>(null);
+
   const sessions = useSessionStore((state) => state.sessions);
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const output = useSessionStore((state) => state.output);
@@ -37,6 +45,13 @@ export default function App() {
     () => sessions.find((session) => session.id === activeSessionId) ?? null,
     [sessions, activeSessionId]
   );
+
+  const runningCount = useMemo(
+    () => sessions.filter((session) => session.status !== 'terminated').length,
+    [sessions]
+  );
+
+  const terminatedCount = sessions.length - runningCount;
 
   async function spawnSession(session: Session, overrideShell?: string) {
     try {
@@ -72,6 +87,46 @@ export default function App() {
 
     void ensureInitialSession();
   }, [createSession, sessions.length, shellConfig.defaultShell.darwin, shellConfig.defaultShell.win32]);
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      if (!dragTargetRef.current) {
+        return;
+      }
+
+      if (dragTargetRef.current === 'left') {
+        const next = clamp(event.clientX - 18, 220, 420);
+        setSidebarWidth(next);
+        return;
+      }
+
+      const next = clamp(window.innerWidth - event.clientX - 18, 360, 760);
+      setRightPanelWidth(next);
+    };
+
+    const onMouseUp = () => {
+      dragTargetRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  function beginResize(target: 'left' | 'right') {
+    return (event: ReactMouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      dragTargetRef.current = target;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    };
+  }
 
   async function handleCreateSession() {
     const fallbackShell = inferShell();
@@ -155,85 +210,130 @@ export default function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeSession, activeSessionId, sessions]);
+  }, [activeSession, activeSessionId, sessions, setActiveSession]);
 
   const repoPath = activeSession?.cwd ?? DEFAULT_CWD;
   const terminalOutput = activeSession ? output[activeSession.id] ?? [] : [];
 
   return (
-    <main className="h-screen w-screen bg-surface-primary text-text-primary">
-      <div className="flex h-full flex-col">
-        <header className="flex h-10 items-center border-b border-default bg-surface-secondary px-3">
-          <h1 className="font-sans text-sm font-bold uppercase tracking-[0.06em]">{APP_NAME}</h1>
-          <div className="ml-4 flex gap-2">
+    <main className="h-screen w-screen p-3 text-text-primary">
+      <div className="fade-up flex h-full flex-col overflow-hidden rounded-2xl border border-default bg-surface-primary shadow-[0_18px_80px_rgba(1,5,18,0.65)] backdrop-blur-sm">
+        <header className="flex h-14 items-center justify-between border-b border-default bg-surface-secondary px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-xl border border-default bg-surface-elevated text-sm font-bold text-accent-primary">
+              AI
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-[14px] font-semibold tracking-[0.02em]">{APP_NAME} Command Center</h1>
+              <p className="truncate text-[11px] text-text-secondary">
+                {activeSession
+                  ? `${activeSession.label} (${activeSession.shell}) - ${activeSession.cwd}`
+                  : 'No active session'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
-              className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${rightView === 'git' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+              className={`h-8 rounded-md border px-3 text-[11px] font-semibold ${rightView === 'git' ? 'border-[#2be3c2] bg-[#2be3c2]/15 text-[#a6fff0]' : 'border-default text-text-secondary hover:bg-surface-tertiary'}`}
               onClick={() => setRightView('git')}
             >
-              Git
+              Git Ops
             </button>
             <button
-              className={`h-6 border px-2 text-[10px] uppercase tracking-[0.04em] ${rightView === 'dashboard' ? 'border-[#10b981] text-[#10b981]' : 'border-default text-text-secondary'}`}
+              className={`h-8 rounded-md border px-3 text-[11px] font-semibold ${rightView === 'dashboard' ? 'border-[#2be3c2] bg-[#2be3c2]/15 text-[#a6fff0]' : 'border-default text-text-secondary hover:bg-surface-tertiary'}`}
               onClick={() => setRightView('dashboard')}
             >
-              Dashboard
+              Usage
             </button>
+            <div className="hidden items-center gap-2 rounded-md border border-default bg-surface-tertiary px-2 py-1 text-[10px] text-text-secondary xl:flex">
+              <span>{runningCount} live</span>
+              <span className="text-text-tertiary">|</span>
+              <span>{terminatedCount} closed</span>
+            </div>
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[240px_1fr_520px]">
-          <SessionSidebar
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            activity={activity}
-            onCreate={() => {
-              void handleCreateSession();
+        <div className="min-h-0 flex-1 p-2">
+          <div
+            className="grid h-full min-h-0"
+            style={{
+              gridTemplateColumns: `${sidebarWidth}px 8px minmax(520px,1fr) 8px ${rightPanelWidth}px`
             }}
-            onSelect={(sessionId) => setActiveSession(sessionId)}
-            onRename={renameSession}
-            onKill={(sessionId) => {
-              void handleKillSession(sessionId);
-            }}
-            onDuplicate={(sessionId) => {
-              void handleDuplicateSession(sessionId);
-            }}
-            onDismiss={handleDismissSession}
-          />
-
-          <section className="flex min-h-0 flex-col border-r border-default">
-            <TerminalToolbar
-              session={activeSession}
-              onNewSession={() => {
-                void handleCreateSession();
-              }}
-              onKillSession={() => {
-                if (activeSession && activeSession.status !== 'terminated') {
-                  void handleKillSession(activeSession.id);
-                }
-              }}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
-            <div className="min-h-0 flex-1">
-              <TerminalPane
-                sessionId={activeSession?.id ?? null}
-                output={terminalOutput}
-                onInput={(value) => {
-                  if (activeSession && activeSession.status !== 'terminated') {
-                    void pty.write(activeSession.id, value);
-                  }
+          >
+            <section className="min-h-0 overflow-hidden rounded-xl border border-default bg-surface-secondary">
+              <SessionSidebar
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                activity={activity}
+                onCreate={() => {
+                  void handleCreateSession();
                 }}
-                onResize={(cols, rows) => {
-                  if (activeSession && activeSession.status !== 'terminated') {
-                    void pty.resize(activeSession.id, cols, rows);
-                  }
+                onSelect={(sessionId) => setActiveSession(sessionId)}
+                onRename={renameSession}
+                onKill={(sessionId) => {
+                  void handleKillSession(sessionId);
                 }}
+                onDuplicate={(sessionId) => {
+                  void handleDuplicateSession(sessionId);
+                }}
+                onDismiss={handleDismissSession}
               />
-            </div>
-          </section>
+            </section>
 
-          <section className="min-h-0">
-            {rightView === 'git' ? <GitPanel repoPath={repoPath} /> : <UsageDashboard />}
-          </section>
+            <div
+              className="group flex cursor-col-resize items-center justify-center"
+              onMouseDown={beginResize('left')}
+              role="separator"
+              aria-label="Resize sidebar"
+            >
+              <div className="h-full w-[2px] rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[#2be3c2]" />
+            </div>
+
+            <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-default bg-surface-secondary">
+              <TerminalToolbar
+                session={activeSession}
+                onNewSession={() => {
+                  void handleCreateSession();
+                }}
+                onKillSession={() => {
+                  if (activeSession && activeSession.status !== 'terminated') {
+                    void handleKillSession(activeSession.id);
+                  }
+                }}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+              <div className="min-h-0 flex-1 bg-[#0a111e]">
+                <TerminalPane
+                  sessionId={activeSession?.id ?? null}
+                  output={terminalOutput}
+                  onInput={(value) => {
+                    if (activeSession && activeSession.status !== 'terminated') {
+                      void pty.write(activeSession.id, value);
+                    }
+                  }}
+                  onResize={(cols, rows) => {
+                    if (activeSession && activeSession.status !== 'terminated') {
+                      void pty.resize(activeSession.id, cols, rows);
+                    }
+                  }}
+                />
+              </div>
+            </section>
+
+            <div
+              className="group flex cursor-col-resize items-center justify-center"
+              onMouseDown={beginResize('right')}
+              role="separator"
+              aria-label="Resize details panel"
+            >
+              <div className="h-full w-[2px] rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[#2be3c2]" />
+            </div>
+
+            <section className="min-h-0 overflow-hidden rounded-xl border border-default bg-surface-secondary">
+              {rightView === 'git' ? <GitPanel repoPath={repoPath} /> : <UsageDashboard />}
+            </section>
+          </div>
         </div>
       </div>
 

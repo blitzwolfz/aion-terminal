@@ -29,6 +29,10 @@ export function SessionTab({
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setValue(session.label);
+  }, [session.label]);
+
+  useEffect(() => {
     const handler = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
@@ -40,11 +44,11 @@ export function SessionTab({
   }, []);
 
   const dotColor =
-    session.status === 'terminated' ? 'bg-text-tertiary' : hasActivity ? 'bg-[#10b981]' : 'bg-[#6b7280]';
+    session.status === 'terminated' ? 'bg-[#6b7280]' : hasActivity ? 'bg-[#22c55e]' : 'bg-[#0ea5e9]';
 
   return (
     <div
-      className={`relative group border-b border-default px-2 py-2 ${active ? 'bg-surface-tertiary' : 'bg-surface-secondary hover:bg-surface-tertiary'}`}
+      className={`group relative rounded-lg border px-2 py-2 transition-colors ${active ? 'border-[#2be3c2] bg-[#10253f]' : 'border-default bg-surface-tertiary hover:bg-surface-elevated'}`}
       onClick={() => onSelect(session.id)}
       onDoubleClick={() => setEditing(true)}
       onContextMenu={(event) => {
@@ -53,11 +57,12 @@ export function SessionTab({
       }}
     >
       <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 ${dotColor} ${hasActivity ? 'animate-pulse' : ''}`} />
+        <span className={`h-2.5 w-2.5 rounded-full ${dotColor} ${hasActivity ? 'animate-pulse' : ''}`} />
+
         {editing ? (
           <Input
             autoFocus
-            className="h-6"
+            className="h-7"
             value={value}
             onChange={(event) => setValue(event.target.value)}
             onBlur={() => {
@@ -73,13 +78,14 @@ export function SessionTab({
           />
         ) : (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium uppercase tracking-[0.04em]">{session.label}</p>
-            <p className="truncate text-[10px] text-text-secondary">{session.status}</p>
+            <p className="truncate text-xs font-semibold tracking-[0.01em]">{session.label}</p>
+            <p className="truncate text-[10px] text-text-secondary">{session.shell} - {session.status}</p>
           </div>
         )}
+
         {session.status === 'terminated' ? (
           <button
-            className="hidden text-[10px] uppercase tracking-[0.04em] text-text-tertiary hover:text-text-primary group-hover:block"
+            className="hidden rounded bg-surface-secondary px-2 py-1 text-[10px] font-medium text-text-tertiary hover:text-text-primary group-hover:block"
             onClick={(event) => {
               event.stopPropagation();
               onDismiss(session.id);
@@ -89,7 +95,7 @@ export function SessionTab({
           </button>
         ) : (
           <button
-            className="hidden text-[10px] uppercase tracking-[0.04em] text-text-tertiary hover:text-[#ef4444] group-hover:block"
+            className="hidden rounded bg-surface-secondary px-2 py-1 text-[10px] font-medium text-text-tertiary hover:text-[#fda4af] group-hover:block"
             onClick={(event) => {
               event.stopPropagation();
               onKill(session.id);
@@ -101,9 +107,12 @@ export function SessionTab({
       </div>
 
       {menuOpen ? (
-        <div ref={menuRef} className="absolute right-2 top-7 z-20 w-36 border border-default bg-surface-secondary shadow">
+        <div
+          ref={menuRef}
+          className="absolute right-2 top-9 z-20 w-40 overflow-hidden rounded-md border border-default bg-surface-secondary shadow-[0_12px_24px_rgba(3,8,20,0.45)]"
+        >
           <button
-            className="block h-8 w-full px-2 text-left text-[11px] uppercase tracking-[0.04em] hover:bg-surface-tertiary"
+            className="block h-8 w-full px-3 text-left text-[11px] font-medium hover:bg-surface-tertiary"
             onClick={(event) => {
               event.stopPropagation();
               setEditing(true);
@@ -113,7 +122,7 @@ export function SessionTab({
             Rename
           </button>
           <button
-            className="block h-8 w-full px-2 text-left text-[11px] uppercase tracking-[0.04em] hover:bg-surface-tertiary"
+            className="block h-8 w-full px-3 text-left text-[11px] font-medium hover:bg-surface-tertiary"
             onClick={(event) => {
               event.stopPropagation();
               onDuplicate(session.id);
@@ -124,7 +133,7 @@ export function SessionTab({
           </button>
           {session.status === 'terminated' ? (
             <button
-              className="block h-8 w-full px-2 text-left text-[11px] uppercase tracking-[0.04em] hover:bg-surface-tertiary"
+              className="block h-8 w-full px-3 text-left text-[11px] font-medium hover:bg-surface-tertiary"
               onClick={(event) => {
                 event.stopPropagation();
                 onDismiss(session.id);
@@ -135,7 +144,7 @@ export function SessionTab({
             </button>
           ) : (
             <button
-              className="block h-8 w-full px-2 text-left text-[11px] uppercase tracking-[0.04em] text-[#ef4444] hover:bg-surface-tertiary"
+              className="block h-8 w-full px-3 text-left text-[11px] font-medium text-[#fda4af] hover:bg-surface-tertiary"
               onClick={(event) => {
                 event.stopPropagation();
                 onKill(session.id);

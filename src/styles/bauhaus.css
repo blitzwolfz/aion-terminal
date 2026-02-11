@@ -1,24 +1,26 @@
 :root {
-  --surface-primary: #111827;
-  --surface-secondary: #1f2937;
-  --surface-tertiary: #374151;
-  --border-default: #4b5563;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
-  --accent-primary: #059669;
-  --accent-hover: #047857;
-  --accent-muted: #064e3b;
-  --accent-surface: #ecfdf5;
-  --status-success: #10b981;
+  --surface-primary: #0b1220;
+  --surface-secondary: #121c2f;
+  --surface-tertiary: #1a2740;
+  --surface-elevated: #223555;
+  --border-default: #2b3e5c;
+  --text-primary: #e7eefc;
+  --text-secondary: #9fb2d1;
+  --text-tertiary: #7287a8;
+  --accent-primary: #13c6a6;
+  --accent-hover: #0ea58a;
+  --accent-muted: #113a3a;
+  --accent-surface: #d7fff7;
+  --status-success: #22c55e;
   --status-error: #ef4444;
   --status-warning: #f59e0b;
-  --status-info: #6b7280;
+  --status-info: #0ea5e9;
 }
 
 .bg-surface-primary { background-color: var(--surface-primary); }
 .bg-surface-secondary { background-color: var(--surface-secondary); }
 .bg-surface-tertiary { background-color: var(--surface-tertiary); }
+.bg-surface-elevated { background-color: var(--surface-elevated); }
 .text-text-primary { color: var(--text-primary); }
 .text-text-secondary { color: var(--text-secondary); }
 .text-text-tertiary { color: var(--text-tertiary); }
