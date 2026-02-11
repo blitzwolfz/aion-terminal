@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
@@ -72,6 +71,9 @@ pub async fn pty_spawn(
         command.env(key, value);
     }
 
+    // Set TERM for proper terminal behavior
+    command.env("TERM", "xterm-256color");
+
     let child = pty_pair
         .slave
         .spawn_command(command)
@@ -114,31 +116,18 @@ pub async fn pty_spawn(
     let app_for_data = app_handle.clone();
     let data_session_id = session_id.clone();
 
+    // Reader thread: reads PTY output and emits to frontend.
+    // Flushes immediately after every read to ensure interactive
+    // responsiveness — echo characters appear without delay.
     std::thread::spawn(move || {
         let mut buf = [0_u8; 4096];
-        let mut pending = Vec::<u8>::new();
-        let mut last_flush = Instant::now();
-
-        let flush_pending = |pending: &mut Vec<u8>| {
-            if pending.is_empty() {
-                return;
-            }
-            let payload = PtyDataPayload {
-                session_id: data_session_id.clone(),
-                data: pending.clone(),
-            };
-            let _ = app_for_data.emit("pty:data", payload);
-            pending.clear();
-        };
 
         loop {
             match reader.read(&mut buf) {
-                Ok(0) => {
-                    flush_pending(&mut pending);
-                    break;
-                }
+                Ok(0) => break,
                 Ok(read_len) => {
                     let bytes = &buf[..read_len];
+
                     let inserts = scraper.ingest(&data_session_id, bytes);
                     if inserts > 0 {
                         let _ = app_for_data.emit(
@@ -150,16 +139,13 @@ pub async fn pty_spawn(
                         );
                     }
 
-                    pending.extend_from_slice(bytes);
-                    if last_flush.elapsed() >= Duration::from_millis(16) {
-                        flush_pending(&mut pending);
-                        last_flush = Instant::now();
-                    }
+                    let payload = PtyDataPayload {
+                        session_id: data_session_id.clone(),
+                        data: bytes.to_vec(),
+                    };
+                    let _ = app_for_data.emit("pty:data", payload);
                 }
-                Err(_) => {
-                    flush_pending(&mut pending);
-                    break;
-                }
+                Err(_) => break,
             }
         }
     });
@@ -167,6 +153,7 @@ pub async fn pty_spawn(
     let app_for_exit = app_handle;
     let exit_session_id = session_id;
 
+    // Exit thread: waits for process completion and emits exit event.
     std::thread::spawn(move || {
         let code = {
             let mut guard = match child_handle.lock() {
@@ -229,7 +216,11 @@ pub async fn pty_write(
 
     guard
         .write_all(&data)
-        .map_err(|err| format!("failed to write to pty: {err}"))
+        .map_err(|err| format!("failed to write to pty: {err}"))?;
+
+    guard
+        .flush()
+        .map_err(|err| format!("failed to flush pty writer: {err}"))
 }
 
 #[tauri::command]

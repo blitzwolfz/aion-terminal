@@ -57,6 +57,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
 
+  // Create terminal instance once
   useEffect(() => {
     const container = containerRef.current;
     if (!container || terminalRef.current) return;
@@ -68,6 +69,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     const fitAddon = createFitAddon();
     terminal.loadAddon(fitAddon);
 
+    // Load WebGL renderer for performance, fall back to canvas
     void import('@xterm/addon-webgl')
       .then(({ WebglAddon }) => {
         if (!terminalRef.current) return;
@@ -81,6 +83,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
 
     terminal.open(container);
 
+    // Initial fit after layout settles
     requestAnimationFrame(() => {
       if (!terminalRef.current) return;
       try {
@@ -98,12 +101,14 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
       });
     });
 
+    // Forward user input to PTY
     terminal.onData((data) => {
       if (sessionIdRef.current) {
         onInputRef.current(data);
       }
     });
 
+    // Auto-resize terminal when container changes size
     const resizeObserver = new ResizeObserver(() => {
       debouncedFit();
     });
@@ -111,6 +116,9 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
 
     terminalRef.current = terminal;
     fitRef.current = fitAddon;
+
+    // Focus the terminal
+    terminal.focus();
 
     return () => {
       if (fitTimeoutRef.current) {
@@ -123,7 +131,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     };
   }, [debouncedFit]);
 
-  // On session switch: clear and replay stored output
+  // On session switch: clear terminal, replay stored output, focus
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
@@ -137,17 +145,20 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
       outputLenRef.current = output.length;
     }
 
+    // Re-fit and focus after session switch
     requestAnimationFrame(() => {
       debouncedFit();
+      terminal.focus();
     });
   }, [sessionId, debouncedFit]);
 
-  // Incremental output writes
+  // Incremental output writes (hot path for PTY data)
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
 
     if (output.length < outputLenRef.current) {
+      // Output was truncated (buffer limit reached) — full replay
       terminal.clear();
       terminal.reset();
       terminal.write(output.join(''));
@@ -163,11 +174,17 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     }
   }, [output]);
 
+  // Click to focus terminal
+  const handleClick = useCallback(() => {
+    terminalRef.current?.focus();
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className="h-full w-full"
       style={{ background: TERMINAL_THEME.background }}
+      onClick={handleClick}
     />
   );
 }
