@@ -31,27 +31,15 @@ export function GitPanel({ repoPath }: Props) {
     deleteTag,
     stash
   } = useGit(repoPath);
-  const {
-    statuses,
-    selectedFile,
-    diff,
-    commits,
-    branches,
-    stashes,
-    loading,
-    error,
-    setSelectedFile
-  } = useGitStore((state) => ({
-    statuses: state.statuses,
-    selectedFile: state.selectedFile,
-    diff: state.diff,
-    commits: state.commits,
-    branches: state.branches,
-    stashes: state.stashes,
-    loading: state.loading,
-    error: state.error,
-    setSelectedFile: state.setSelectedFile
-  }));
+  const statuses = useGitStore((state) => state.statuses);
+  const selectedFile = useGitStore((state) => state.selectedFile);
+  const diff = useGitStore((state) => state.diff);
+  const commits = useGitStore((state) => state.commits);
+  const branches = useGitStore((state) => state.branches);
+  const stashes = useGitStore((state) => state.stashes);
+  const loading = useGitStore((state) => state.loading);
+  const error = useGitStore((state) => state.error);
+  const setSelectedFile = useGitStore((state) => state.setSelectedFile);
 
   const [tagName, setTagName] = useState('');
 

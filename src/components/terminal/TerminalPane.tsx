@@ -17,6 +17,15 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
   const fitRef = useRef<ReturnType<typeof createFitAddon> | null>(null);
   const outputLenRef = useRef(0);
   const aliveRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(sessionId);
+  const onInputRef = useRef(onInput);
+  const onResizeRef = useRef(onResize);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+    onInputRef.current = onInput;
+    onResizeRef.current = onResize;
+  }, [onInput, onResize, sessionId]);
 
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) {
@@ -71,15 +80,16 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
     });
 
     terminal.onData((data) => {
-      if (sessionId) {
-        onInput(data);
+      if (sessionIdRef.current) {
+        onInputRef.current(data);
       }
     });
 
     const resizeObserver = new ResizeObserver(() => {
       safeFit();
-      if (sessionId && onResize) {
-        onResize(terminal.cols, terminal.rows);
+      const onResizeHandler = onResizeRef.current;
+      if (sessionIdRef.current && onResizeHandler) {
+        onResizeHandler(terminal.cols, terminal.rows);
       }
     });
 
@@ -95,7 +105,7 @@ export function TerminalPane({ sessionId, output, onInput, onResize }: Props) {
       terminalRef.current = null;
       fitRef.current = null;
     };
-  }, [onInput, onResize, sessionId]);
+  }, []);
 
   useEffect(() => {
     const terminal = terminalRef.current;

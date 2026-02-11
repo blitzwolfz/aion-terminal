@@ -24,25 +24,14 @@ import {
 import { useGitStore } from '@/stores/gitStore';
 
 export function useGit(repoPath: string) {
-  const {
-    setStatuses,
-    setDiff,
-    setCommits,
-    setBranches,
-    setStashes,
-    setLoading,
-    setError,
-    selectedFile
-  } = useGitStore((state) => ({
-    setStatuses: state.setStatuses,
-    setDiff: state.setDiff,
-    setCommits: state.setCommits,
-    setBranches: state.setBranches,
-    setStashes: state.setStashes,
-    setLoading: state.setLoading,
-    setError: state.setError,
-    selectedFile: state.selectedFile
-  }));
+  const setStatuses = useGitStore((state) => state.setStatuses);
+  const setDiff = useGitStore((state) => state.setDiff);
+  const setCommits = useGitStore((state) => state.setCommits);
+  const setBranches = useGitStore((state) => state.setBranches);
+  const setStashes = useGitStore((state) => state.setStashes);
+  const setLoading = useGitStore((state) => state.setLoading);
+  const setError = useGitStore((state) => state.setError);
+  const selectedFile = useGitStore((state) => state.selectedFile);
 
   const refresh = useCallback(async () => {
     try {

@@ -20,31 +20,16 @@ export default function App() {
   const pty = usePty();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rightView, setRightView] = useState<'git' | 'dashboard'>('git');
-  const {
-    sessions,
-    activeSessionId,
-    output,
-    activity,
-    createSession,
-    duplicateSession,
-    removeSession,
-    renameSession,
-    setActiveSession,
-    setStatus,
-    reorderSessions
-  } = useSessionStore((state) => ({
-    sessions: state.sessions,
-    activeSessionId: state.activeSessionId,
-    output: state.output,
-    activity: state.activity,
-    createSession: state.createSession,
-    duplicateSession: state.duplicateSession,
-    removeSession: state.removeSession,
-    renameSession: state.renameSession,
-    setActiveSession: state.setActiveSession,
-    setStatus: state.setStatus,
-    reorderSessions: state.reorderSessions
-  }));
+  const sessions = useSessionStore((state) => state.sessions);
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
+  const output = useSessionStore((state) => state.output);
+  const activity = useSessionStore((state) => state.activity);
+  const createSession = useSessionStore((state) => state.createSession);
+  const duplicateSession = useSessionStore((state) => state.duplicateSession);
+  const removeSession = useSessionStore((state) => state.removeSession);
+  const renameSession = useSessionStore((state) => state.renameSession);
+  const setActiveSession = useSessionStore((state) => state.setActiveSession);
+  const setStatus = useSessionStore((state) => state.setStatus);
 
   const shellConfig = useSettingsStore((state) => state.shellConfig);
 
@@ -127,18 +112,6 @@ export default function App() {
 
   function handleDismissSession(sessionId: string) {
     removeSession(sessionId);
-  }
-
-  function handleSessionReorder(nextSessions: Session[]) {
-    if (nextSessions.length !== sessions.length) {
-      return;
-    }
-    nextSessions.forEach((session, toIndex) => {
-      const fromIndex = sessions.findIndex((item) => item.id === session.id);
-      if (fromIndex !== toIndex) {
-        reorderSessions(fromIndex, toIndex);
-      }
-    });
   }
 
   useEffect(() => {
@@ -225,7 +198,6 @@ export default function App() {
               void handleDuplicateSession(sessionId);
             }}
             onDismiss={handleDismissSession}
-            onReorder={handleSessionReorder}
           />
 
           <section className="flex min-h-0 flex-col border-r border-default">
